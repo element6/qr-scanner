@@ -121,6 +121,7 @@
     <div id="result">No QR code detected yet.</div>
     <button id="copyBtn" class="copy-btn" disabled>Copy to Clipboard</button>
     <span id="copyStatus"></span>
+    <button id="openUrlBtn" style="display:none;">Open URL</button>
     
     <div class="history">
         <h2>Scan History</h2>
@@ -232,41 +233,62 @@
             historyList.innerHTML = '';
         });
         
+        // Helper to check if string is a valid URL
+        function isValidUrl(str) {
+            try {
+                const url = new URL(str);
+                return url.protocol === "http:" || url.protocol === "https:";
+            } catch (_) {
+                return false;
+            }
+        }
+        
         // QR code scanning function
         function scanQRCode() {
             if (!scanning) return;
-            
+
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
+
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
             const code = jsQR(imageData.data, imageData.width, imageData.height);
-            
+
             if (code) {
                 scannedData = code.data;
                 resultDiv.textContent = scannedData;
                 copyBtn.disabled = false;
-                
+
+                // Show Open URL button if valid
+                if (isValidUrl(scannedData)) {
+                    openUrlBtn.style.display = 'inline-block';
+                    openUrlBtn.onclick = () => window.open(scannedData, '_blank');
+                } else {
+                    openUrlBtn.style.display = 'none';
+                    openUrlBtn.onclick = null;
+                }
+
                 // Add to history
                 addToHistory(scannedData);
-                
+
                 // Freeze the frame
                 freezeFrame(canvas);
-                
+
                 // Stop scanning
                 scanning = false;
                 resumeBtn.disabled = false;
                 previewNotice.style.display = 'block';
-                
+
                 return; // Exit the scanning loop
             } else {
                 resultDiv.textContent = "No QR code detected.";
                 copyBtn.disabled = true;
+                openUrlBtn.style.display = 'none';
+                openUrlBtn.onclick = null;
             }
-            
+
             requestAnimationFrame(scanQRCode);
         }
         
