@@ -359,6 +359,19 @@
                 historyList.appendChild(div);
             });
         }
+
+        // Register service worker for offline access
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('js/service-worker.js')
+                    .then(reg => {
+                        console.log('Service worker registered.', reg);
+                    })
+                    .catch(err => {
+                        console.warn('Service worker registration failed:', err);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
