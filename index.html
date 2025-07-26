@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Scanner with History</title>
+    <title>Code Scanner</title>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         body {
@@ -13,6 +13,7 @@
             padding: 20px;
         }
         .scanner-container {
+            position: relative;
             width: 100%;
             max-width: 400px;
             margin: 20px auto;
@@ -54,6 +55,12 @@
         .copy-btn:hover {
             background: #27ae60;
         }
+        .resume-btn {
+            background: #f39c12;
+        }
+        .resume-btn:hover {
+            background: #e67e22;
+        }
         .history {
             margin-top: 30px;
             border-top: 1px solid #eee;
@@ -77,18 +84,38 @@
         .clear-btn:hover {
             background: #c0392b;
         }
+        .preview-notice {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        #frozenImage {
+            display: none;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
-    <h1>QR Scanner with History</h1>
+    <h1>Code Scanner</h1>
     
     <div class="scanner-container">
         <video id="scanner" playsinline muted></video>
+        <img id="frozenImage" alt="Frozen QR code frame">
+        <div id="previewNotice" class="preview-notice" style="display: none;">
+            Preview frozen - QR code detected
+        </div>
     </div>
     
     <div>
         <button id="startBtn">Start Scanner</button>
         <button id="stopBtn" disabled>Stop Scanner</button>
+        <button id="resumeBtn" class="resume-btn" disabled>Resume Scanning</button>
     </div>
     
     <div id="result">No QR code detected yet.</div>
@@ -104,13 +131,16 @@
     <script>
         // DOM elements
         const video = document.getElementById('scanner');
+        const frozenImage = document.getElementById('frozenImage');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const resumeBtn = document.getElementById('resumeBtn');
         const copyBtn = document.getElementById('copyBtn');
         const resultDiv = document.getElementById('result');
         const copyStatus = document.getElementById('copyStatus');
         const historyList = document.getElementById('historyList');
         const clearHistoryBtn = document.getElementById('clearHistory');
+        const previewNotice = document.getElementById('previewNotice');
         
         // State variables
         let stream = null;
@@ -130,8 +160,13 @@
                 video.srcObject = stream;
                 await video.play();
                 
+                // Show video, hide frozen image
+                video.style.display = 'block';
+                frozenImage.style.display = 'none';
+                
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
+                resumeBtn.disabled = true;
                 scanning = true;
                 
                 scanQRCode();
@@ -150,7 +185,29 @@
             
             startBtn.disabled = false;
             stopBtn.disabled = true;
+            resumeBtn.disabled = true;
             scanning = false;
+            previewNotice.style.display = 'none';
+            
+            // Show video, hide frozen image
+            video.style.display = 'block';
+            frozenImage.style.display = 'none';
+        });
+        
+        // Resume scanning
+        resumeBtn.addEventListener('click', () => {
+            if (stream) {
+                // Show video, hide frozen image
+                video.style.display = 'block';
+                frozenImage.style.display = 'none';
+                
+                scanning = true;
+                resumeBtn.disabled = true;
+                previewNotice.style.display = 'none';
+                
+                // Restart scanning loop
+                scanQRCode();
+            }
         });
         
         // Copy to clipboard
@@ -195,12 +252,32 @@
                 
                 // Add to history
                 addToHistory(scannedData);
+                
+                // Freeze the frame
+                freezeFrame(canvas);
+                
+                // Stop scanning
+                scanning = false;
+                resumeBtn.disabled = false;
+                previewNotice.style.display = 'block';
+                
+                return; // Exit the scanning loop
             } else {
                 resultDiv.textContent = "No QR code detected.";
                 copyBtn.disabled = true;
             }
             
             requestAnimationFrame(scanQRCode);
+        }
+        
+        // Freeze the current video frame
+        function freezeFrame(canvas) {
+            // Convert canvas to image URL and set as frozen image source
+            frozenImage.src = canvas.toDataURL('image/png');
+            
+            // Hide video, show frozen image
+            video.style.display = 'none';
+            frozenImage.style.display = 'block';
         }
         
         // History functions
