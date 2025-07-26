@@ -1,377 +1,385 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Code Scanner</title>
     <script src="js/jsQR.min.js"></script>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#3498db" />
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .scanner-container {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            margin: 20px auto;
-            border: 2px solid #3498db;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        #scanner {
-            width: 100%;
-            display: block;
-        }
-        #result {
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 15px 0;
-            min-height: 20px;
-            background: #f9f9f9;
-        }
-        button {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            margin: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #2980b9;
-        }
-        button:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-        }
-        .copy-btn {
-            background: #2ecc71;
-        }
-        .copy-btn:hover {
-            background: #27ae60;
-        }
-        .resume-btn {
-            background: #f39c12;
-        }
-        .resume-btn:hover {
-            background: #e67e22;
-        }
-        .history {
-            margin-top: 30px;
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-        }
-        .history-item {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            word-break: break-all;
-        }
-        .history-item:last-child {
-            border-bottom: none;
-        }
-        .timestamp {
-            color: #7f8c8d;
-            font-size: 0.8em;
-        }
-        .clear-btn {
-            background: #e74c3c;
-        }
-        .clear-btn:hover {
-            background: #c0392b;
-        }
-        .preview-notice {
-            position: absolute;
-            top: 10px;
-            left: 0;
-            right: 0;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 5px;
-            text-align: center;
-            font-size: 0.9em;
-        }
-        #frozenImage {
-            display: none;
-            width: 100%;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .scanner-container {
+        position: relative;
+        width: 100%;
+        max-width: 400px;
+        margin: 20px auto;
+        border: 2px solid #3498db;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #scanner {
+        width: 100%;
+        display: block;
+      }
+      #result {
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin: 15px 0;
+        min-height: 20px;
+        background: #f9f9f9;
+      }
+      button {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        margin: 5px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #2980b9;
+      }
+      button:disabled {
+        background: #95a5a6;
+        cursor: not-allowed;
+      }
+      .copy-btn {
+        background: #2ecc71;
+      }
+      .copy-btn:hover {
+        background: #27ae60;
+      }
+      .resume-btn {
+        background: #f39c12;
+      }
+      .resume-btn:hover {
+        background: #e67e22;
+      }
+      .history {
+        margin-top: 30px;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+      }
+      .history-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        word-break: break-all;
+      }
+      .history-item:last-child {
+        border-bottom: none;
+      }
+      .timestamp {
+        color: #7f8c8d;
+        font-size: 0.8em;
+      }
+      .clear-btn {
+        background: #e74c3c;
+      }
+      .clear-btn:hover {
+        background: #c0392b;
+      }
+      .preview-notice {
+        position: absolute;
+        top: 10px;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px;
+        text-align: center;
+        font-size: 0.9em;
+      }
+      #frozenImage {
+        display: none;
+        width: 100%;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Code Scanner</h1>
-    
+
     <div class="scanner-container">
-        <video id="scanner" playsinline muted></video>
-        <img id="frozenImage" alt="Frozen QR code frame">
-        <div id="previewNotice" class="preview-notice" style="display: none;">
-            Code detected
-        </div>
+      <video id="scanner" playsinline muted></video>
+      <img id="frozenImage" alt="Frozen QR code frame" />
+      <div id="previewNotice" class="preview-notice" style="display: none">
+        Code detected
+      </div>
     </div>
-    
+
     <div>
-        <button id="startBtn">Start Scanner</button>
-        <button id="stopBtn" disabled>Stop Scanner</button>
+      <button id="startBtn">Start Scanner</button>
+      <button id="stopBtn" disabled>Stop Scanner</button>
     </div>
-    
+
     <div id="result">No QR code detected yet.</div>
     <button id="copyBtn" class="copy-btn" disabled>Copy to Clipboard</button>
     <span id="copyStatus"></span>
-    <button id="openUrlBtn" style="display:none;">Open URL</button>
-    
+    <button id="openUrlBtn" style="display: none">Open URL</button>
+
     <div class="history">
-        <h2>Scan History</h2>
-        <button id="clearHistory" class="clear-btn">Clear History</button>
-        <div id="historyList"></div>
+      <h2>Scan History</h2>
+      <button id="clearHistory" class="clear-btn">Clear History</button>
+      <div id="historyList"></div>
     </div>
 
     <script>
-        // DOM elements
-        const video = document.getElementById('scanner');
-        const frozenImage = document.getElementById('frozenImage');
-        const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const copyBtn = document.getElementById('copyBtn');
-        const resultDiv = document.getElementById('result');
-        const copyStatus = document.getElementById('copyStatus');
-        const historyList = document.getElementById('historyList');
-        const clearHistoryBtn = document.getElementById('clearHistory');
-        const previewNotice = document.getElementById('previewNotice');
-        
-        // State variables
-        let stream = null;
-        let scanning = false;
-        let scannedData = null;
-        const MAX_HISTORY = 50; // Maximum number of history items to store
-        
-        // Initialize
-        loadHistory();
-        
-        // Start scanner
-        startBtn.addEventListener('click', async () => {
-            if (stream) {
-                // Show video, hide frozen image
-                video.style.display = 'block';
-                frozenImage.style.display = 'none';
-                
-                scanning = true;
-                startBtn.disabled = true;
-                previewNotice.style.display = 'none';
-                
-                // Restart scanning loop
-                scanQRCode();
-                return 
-            }
+      // DOM elements
+      const video = document.getElementById("scanner");
+      const frozenImage = document.getElementById("frozenImage");
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const copyBtn = document.getElementById("copyBtn");
+      const resultDiv = document.getElementById("result");
+      const copyStatus = document.getElementById("copyStatus");
+      const historyList = document.getElementById("historyList");
+      const clearHistoryBtn = document.getElementById("clearHistory");
+      const previewNotice = document.getElementById("previewNotice");
 
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" } 
-                });
-                video.srcObject = stream;
-                await video.play();
-                
-                // Show video, hide frozen image
-                video.style.display = 'block';
-                frozenImage.style.display = 'none';
-                
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                scanning = true;
-                
-                scanQRCode();
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                resultDiv.textContent = "Error accessing camera: " + err.message;
-            }
-        });
-        
-        // Stop scanner
-        stopBtn.addEventListener('click', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-                stream = null;
-            }
-            
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            scanning = false;
-            previewNotice.style.display = 'none';
-            
-            // Show video, hide frozen image
-            video.style.display = 'block';
-            frozenImage.style.display = 'none';
-        });
-        
-        // Copy to clipboard
-        copyBtn.addEventListener('click', () => {
-            if (scannedData) {
-                navigator.clipboard.writeText(scannedData)
-                    .then(() => {
-                        copyStatus.textContent = " ✓ Copied!";
-                        setTimeout(() => {
-                            copyStatus.textContent = "";
-                        }, 2000);
-                    })
-                    .catch(err => {
-                        copyStatus.textContent = "Failed to copy: " + err;
-                    });
-            }
-        });
-        
-        // Clear history
-        clearHistoryBtn.addEventListener('click', () => {
-            localStorage.removeItem('qrScanHistory');
-            historyList.innerHTML = '';
-        });
-        
-        // Helper to check if string is a valid URL
-        function isValidUrl(str) {
-            try {
-                const url = new URL(str);
-                return url.protocol === "http:" || url.protocol === "https:";
-            } catch (_) {
-                return false;
-            }
+      // State variables
+      let stream = null;
+      let scanning = false;
+      let scannedData = null;
+      const MAX_HISTORY = 50; // Maximum number of history items to store
+
+      // Initialize
+      loadHistory();
+
+      // Start scanner
+      startBtn.addEventListener("click", async () => {
+        if (stream) {
+          // Show video, hide frozen image
+          video.style.display = "block";
+          frozenImage.style.display = "none";
+
+          scanning = true;
+          startBtn.disabled = true;
+          previewNotice.style.display = "none";
+
+          // Restart scanning loop
+          scanQRCode();
+          return;
         }
-        
-        // QR code scanning function
-        function scanQRCode() {
-            if (!scanning) return;
 
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+          });
+          video.srcObject = stream;
+          await video.play();
 
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
+          // Show video, hide frozen image
+          video.style.display = "block";
+          frozenImage.style.display = "none";
 
-            if (code) {
-                scannedData = code.data;
-                resultDiv.textContent = scannedData;
-                copyBtn.disabled = false;
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          scanning = true;
 
-                // Show Open URL button if valid
-                if (isValidUrl(scannedData)) {
-                    openUrlBtn.style.display = 'inline-block';
-                    openUrlBtn.onclick = () => window.open(scannedData, '_blank');
-                } else {
-                    openUrlBtn.style.display = 'none';
-                    openUrlBtn.onclick = null;
-                }
-
-                // Add to history
-                addToHistory(scannedData);
-
-                // Freeze the frame
-                freezeFrame(canvas);
-
-                // Stop scanning
-                scanning = false;
-                startBtn.disabled = false;
-                previewNotice.style.display = 'block';
-
-                return; // Exit the scanning loop
-            } else {
-                resultDiv.textContent = "No QR code detected.";
-                copyBtn.disabled = true;
-                openUrlBtn.style.display = 'none';
-                openUrlBtn.onclick = null;
-            }
-
-            requestAnimationFrame(scanQRCode);
+          scanQRCode();
+        } catch (err) {
+          console.error("Error accessing camera:", err);
+          resultDiv.textContent = "Error accessing camera: " + err.message;
         }
-        
-        // Freeze the current video frame
-        function freezeFrame(canvas) {
-            // Convert canvas to image URL and set as frozen image source
-            frozenImage.src = canvas.toDataURL('image/png');
-            
-            // Hide video, show frozen image
-            video.style.display = 'none';
-            frozenImage.style.display = 'block';
+      });
+
+      // Stop scanner
+      stopBtn.addEventListener("click", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+          video.srcObject = null;
+          stream = null;
         }
-        
-        // History functions
-        function addToHistory(data) {
-            // Get current history
-            let history = JSON.parse(localStorage.getItem('qrScanHistory')) || [];
-            
-            // Add new item with timestamp
-            history.unshift({
-                data: data,
-                timestamp: new Date().toISOString()
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        scanning = false;
+        previewNotice.style.display = "none";
+
+        // Show video, hide frozen image
+        video.style.display = "block";
+        frozenImage.style.display = "none";
+      });
+
+      // Copy to clipboard
+      copyBtn.addEventListener("click", () => {
+        if (scannedData) {
+          navigator.clipboard
+            .writeText(scannedData)
+            .then(() => {
+              copyStatus.textContent = " ✓ Copied!";
+              setTimeout(() => {
+                copyStatus.textContent = "";
+              }, 2000);
+            })
+            .catch((err) => {
+              copyStatus.textContent = "Failed to copy: " + err;
             });
-            
-            // Limit history size
-            if (history.length > MAX_HISTORY) {
-                history = history.slice(0, MAX_HISTORY);
-            }
-            
-            // Save to localStorage
-            localStorage.setItem('qrScanHistory', JSON.stringify(history));
-            
-            // Update display
-            loadHistory();
         }
-        
-        function loadHistory() {
-            const history = JSON.parse(localStorage.getItem('qrScanHistory')) || [];
-            historyList.innerHTML = '';
-            
-            if (history.length === 0) {
-                historyList.innerHTML = '<p>No scan history yet.</p>';
-                return;
-            }
-            
-            history.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                
-                const date = new Date(item.timestamp);
-                const timeString = date.toLocaleString();
-                
-                div.innerHTML = `
+      });
+
+      // Clear history
+      clearHistoryBtn.addEventListener("click", () => {
+        localStorage.removeItem("qrScanHistory");
+        historyList.innerHTML = "";
+      });
+
+      // Helper to check if string is a valid URL
+      function isValidUrl(str) {
+        try {
+          const url = new URL(str);
+          return url.protocol === "http:" || url.protocol === "https:";
+        } catch (_) {
+          return false;
+        }
+      }
+
+      // QR code scanning function
+      function scanQRCode() {
+        if (!scanning) return;
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = context.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code) {
+          scannedData = code.data;
+          resultDiv.textContent = scannedData;
+          copyBtn.disabled = false;
+
+          // Show Open URL button if valid
+          if (isValidUrl(scannedData)) {
+            openUrlBtn.style.display = "inline-block";
+            openUrlBtn.onclick = () => window.open(scannedData, "_blank");
+          } else {
+            openUrlBtn.style.display = "none";
+            openUrlBtn.onclick = null;
+          }
+
+          // Add to history
+          addToHistory(scannedData);
+
+          // Freeze the frame
+          freezeFrame(canvas);
+
+          // Stop scanning
+          scanning = false;
+          startBtn.disabled = false;
+          previewNotice.style.display = "block";
+
+          return; // Exit the scanning loop
+        } else {
+          resultDiv.textContent = "No QR code detected.";
+          copyBtn.disabled = true;
+          openUrlBtn.style.display = "none";
+          openUrlBtn.onclick = null;
+        }
+
+        requestAnimationFrame(scanQRCode);
+      }
+
+      // Freeze the current video frame
+      function freezeFrame(canvas) {
+        // Convert canvas to image URL and set as frozen image source
+        frozenImage.src = canvas.toDataURL("image/png");
+
+        // Hide video, show frozen image
+        video.style.display = "none";
+        frozenImage.style.display = "block";
+      }
+
+      // History functions
+      function addToHistory(data) {
+        // Get current history
+        let history = JSON.parse(localStorage.getItem("qrScanHistory")) || [];
+
+        // Add new item with timestamp
+        history.unshift({
+          data: data,
+          timestamp: new Date().toISOString(),
+        });
+
+        // Limit history size
+        if (history.length > MAX_HISTORY) {
+          history = history.slice(0, MAX_HISTORY);
+        }
+
+        // Save to localStorage
+        localStorage.setItem("qrScanHistory", JSON.stringify(history));
+
+        // Update display
+        loadHistory();
+      }
+
+      function loadHistory() {
+        const history = JSON.parse(localStorage.getItem("qrScanHistory")) || [];
+        historyList.innerHTML = "";
+
+        if (history.length === 0) {
+          historyList.innerHTML = "<p>No scan history yet.</p>";
+          return;
+        }
+
+        history.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "history-item";
+
+          const date = new Date(item.timestamp);
+          const timeString = date.toLocaleString();
+
+          div.innerHTML = `
                     <div class="timestamp">${timeString}</div>
                     <div>${item.data}</div>
                 `;
-                
-                // Click to copy
-                div.addEventListener('click', () => {
-                    navigator.clipboard.writeText(item.data)
-                        .then(() => {
-                            const status = document.createElement('span');
-                            status.textContent = ' ✓ Copied!';
-                            status.style.color = '#2ecc71';
-                            div.appendChild(status);
-                            setTimeout(() => {
-                                div.removeChild(status);
-                            }, 2000);
-                        });
-                });
-                
-                div.style.cursor = 'pointer';
-                historyList.appendChild(div);
-            });
-        }
 
-        // Register service worker for offline access
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('js/service-worker.js')
-                    .then(reg => {
-                        console.log('Service worker registered.', reg);
-                    })
-                    .catch(err => {
-                        console.warn('Service worker registration failed:', err);
-                    });
+          // Click to copy
+          div.addEventListener("click", () => {
+            navigator.clipboard.writeText(item.data).then(() => {
+              const status = document.createElement("span");
+              status.textContent = " ✓ Copied!";
+              status.style.color = "#2ecc71";
+              div.appendChild(status);
+              setTimeout(() => {
+                div.removeChild(status);
+              }, 2000);
             });
-        }
+          });
+
+          div.style.cursor = "pointer";
+          historyList.appendChild(div);
+        });
+      }
+
+      // Register service worker for offline access
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("js/service-worker.js")
+            .then((reg) => {
+              console.log("Service worker registered.", reg);
+            })
+            .catch((err) => {
+              console.warn("Service worker registration failed:", err);
+            });
+        });
+      }
     </script>
-</body>
+  </body>
 </html>
