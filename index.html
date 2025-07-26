@@ -108,14 +108,13 @@
         <video id="scanner" playsinline muted></video>
         <img id="frozenImage" alt="Frozen QR code frame">
         <div id="previewNotice" class="preview-notice" style="display: none;">
-            Preview frozen - QR code detected
+            Code detected
         </div>
     </div>
     
     <div>
         <button id="startBtn">Start Scanner</button>
         <button id="stopBtn" disabled>Stop Scanner</button>
-        <button id="resumeBtn" class="resume-btn" disabled>Resume Scanning</button>
     </div>
     
     <div id="result">No QR code detected yet.</div>
@@ -135,7 +134,6 @@
         const frozenImage = document.getElementById('frozenImage');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
-        const resumeBtn = document.getElementById('resumeBtn');
         const copyBtn = document.getElementById('copyBtn');
         const resultDiv = document.getElementById('result');
         const copyStatus = document.getElementById('copyStatus');
@@ -154,6 +152,20 @@
         
         // Start scanner
         startBtn.addEventListener('click', async () => {
+            if (stream) {
+                // Show video, hide frozen image
+                video.style.display = 'block';
+                frozenImage.style.display = 'none';
+                
+                scanning = true;
+                startBtn.disabled = true;
+                previewNotice.style.display = 'none';
+                
+                // Restart scanning loop
+                scanQRCode();
+                return 
+            }
+
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "environment" } 
@@ -167,7 +179,6 @@
                 
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
-                resumeBtn.disabled = true;
                 scanning = true;
                 
                 scanQRCode();
@@ -186,29 +197,12 @@
             
             startBtn.disabled = false;
             stopBtn.disabled = true;
-            resumeBtn.disabled = true;
             scanning = false;
             previewNotice.style.display = 'none';
             
             // Show video, hide frozen image
             video.style.display = 'block';
             frozenImage.style.display = 'none';
-        });
-        
-        // Resume scanning
-        resumeBtn.addEventListener('click', () => {
-            if (stream) {
-                // Show video, hide frozen image
-                video.style.display = 'block';
-                frozenImage.style.display = 'none';
-                
-                scanning = true;
-                resumeBtn.disabled = true;
-                previewNotice.style.display = 'none';
-                
-                // Restart scanning loop
-                scanQRCode();
-            }
         });
         
         // Copy to clipboard
@@ -278,7 +272,7 @@
 
                 // Stop scanning
                 scanning = false;
-                resumeBtn.disabled = false;
+                startBtn.disabled = false;
                 previewNotice.style.display = 'block';
 
                 return; // Exit the scanning loop
