@@ -21,6 +21,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [notification, setNotification] = useState("");
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -35,9 +36,15 @@ export default function App() {
     }
   }, []);
 
-  const persistHistory = (next: HistoryItem[]) => {
-    setHistory(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  useEffect(() => {
+    if (!notification) return;
+    const timer = window.setTimeout(() => setNotification(""), 2200);
+    return () => window.clearTimeout(timer);
+  }, [notification]);
+
+  const persistHistory = (nextHistory: HistoryItem[]) => {
+    setHistory(nextHistory);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
   };
 
   const handleScan = (detectedCodes: Array<{ rawValue: string }>) => {
@@ -50,26 +57,30 @@ export default function App() {
 
     setScannedData(nextValue);
     setPaused(true);
+    setError(null);
 
-    const nextHistory = [
-      { data: nextValue, timestamp: new Date().toISOString() },
-      ...history,
-    ].slice(0, MAX_HISTORY);
+    setHistory((prevHistory) => {
+      const nextHistory = [
+        { data: nextValue, timestamp: new Date().toISOString() },
+        ...prevHistory,
+      ].slice(0, MAX_HISTORY);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
+      return nextHistory;
+    });
 
-    persistHistory(nextHistory);
+    setNotification("Scan saved to history");
   };
 
   const handleError = (err: unknown) => {
-    if (err instanceof Error) {
-      setError(err.message);
-    } else {
-      setError(String(err));
-    }
+    const message = err instanceof Error ? err.message : String(err);
+    setError(message);
+    setNotification("Camera error: " + message);
     console.error("Scanner error:", err);
   };
 
   const clearHistory = () => {
     setHistory([]);
+    setNotification("History cleared");
     localStorage.removeItem(STORAGE_KEY);
   };
 
@@ -77,14 +88,25 @@ export default function App() {
     if (!scannedData) return;
     try {
       await navigator.clipboard.writeText(scannedData);
+      setNotification("Copied latest scan to clipboard");
     } catch (err) {
       console.error("Copy failed", err);
+      setNotification("Copy failed");
     }
   };
 
   const openUrl = () => {
     if (isValidUrl(scannedData)) {
       window.open(scannedData, "_blank");
+    }
+  };
+
+  const copyHistoryItem = async (data: string) => {
+    try {
+      await navigator.clipboard.writeText(data);
+      setNotification("Copied history item");
+    } catch {
+      setNotification("Copy failed");
     }
   };
 
@@ -102,90 +124,156 @@ export default function App() {
   };
 
   return (
-    <div>
-      <div className="relative w-full max-w-md mx-auto border-2 border-blue-500 rounded-lg overflow-hidden mb-6">
-        <Scanner
-          onScan={handleScan}
-          onError={handleError}
-          constraints={deviceConstraints}
-          paused={paused}
-          components={{ finder: true, onOff: true, torch: true, zoom: true }}
-          classNames={{ container: "w-full h-full", video: "w-full h-full" }}
-        />
-      </div>
+    <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
+      <div className="mx-auto max-w-3xl space-y-6">
+        <header className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold text-slate-800">Code Scanner</h1>
+          <p className="text-sm text-slate-600">
+            Point your camera to a QR code and store scan results in history.
+          </p>
+        </header>
 
-      <div className="mb-4 flex items-center gap-3">
-        <button
-          onClick={toggleScanner}
-          aria-pressed={scannerRunning}
-          className={`px-4 py-2 rounded text-white ${
-            scannerRunning
-              ? "bg-red-500 hover:bg-red-700"
-              : "bg-green-500 hover:bg-green-700"
-          }`}
-        >
-          {scannerRunning ? "Pause scanning" : "Start scanning"}
-        </button>
-        <span className="text-sm font-medium">
-          {scannerRunning ? "● Scanning" : "○ Paused"}
-        </span>
-      </div>
-
-      <div className="p-4 border border-gray-300 rounded mb-3 min-h-[20px] bg-gray-50">
-        {error ? (
-          <span className="text-red-600">{error}</span>
-        ) : (
-          scannedData || "No QR code detected yet."
+        {notification && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
+            {notification}
+          </div>
         )}
-      </div>
 
-      <div className="mb-4">
-        <button
-          onClick={copyToClipboard}
-          disabled={!scannedData}
-          className="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded mr-2"
-        >
-          Copy to Clipboard
-        </button>
-
-        {openUrlVisible && (
-          <button
-            onClick={openUrl}
-            className="bg-indigo-500 hover:bg-indigo-700 text-white px-4 py-2 rounded"
-          >
-            Open URL
-          </button>
-        )}
-      </div>
-
-      <div className="history mt-8 border-t border-gray-200 pt-6">
-        <h2 className="text-lg font-semibold mb-2">Scan History</h2>
-        <button
-          onClick={clearHistory}
-          className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded mb-3"
-        >
-          Clear History
-        </button>
-
-        <div>
-          {history.length === 0 ? (
-            <p className="text-gray-500">No scan history yet.</p>
-          ) : (
-            history.map((item, index) => (
-              <div
-                key={`${item.timestamp}-${index}`}
-                className="history-item p-2 border-b border-gray-100 break-all cursor-pointer hover:bg-gray-50"
-                onClick={() => navigator.clipboard.writeText(item.data)}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 p-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Camera</span>
+              <span
+                className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                  scannerRunning
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
               >
-                <div className="timestamp text-gray-500 text-xs">
-                  {new Date(item.timestamp).toLocaleString()}
-                </div>
-                <div>{item.data}</div>
-              </div>
-            ))
+                {scannerRunning ? "Scanning" : "Paused"}
+              </span>
+            </div>
+            <button
+              onClick={toggleScanner}
+              aria-pressed={scannerRunning}
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition ${
+                scannerRunning
+                  ? "bg-red-500 hover:bg-red-600"
+                  : "bg-emerald-500 hover:bg-emerald-600"
+              }`}
+            >
+              {scannerRunning ? "Pause" : "Start"}
+            </button>
+          </div>
+
+          <div className="aspect-video bg-black">
+            <Scanner
+              onScan={handleScan}
+              onError={handleError}
+              constraints={deviceConstraints}
+              paused={paused}
+              components={{
+                finder: true,
+                onOff: true,
+                torch: true,
+                zoom: true,
+              }}
+              classNames={{
+                container: "w-full h-full",
+                video: "w-full h-full",
+              }}
+            />
+          </div>
+        </section>
+
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-slate-800">Last Scan</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setPaused(false);
+                  setError(null);
+                  setNotification("Scanning resumed");
+                }}
+                className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
+              >
+                Scan again
+              </button>
+              <button
+                onClick={clearHistory}
+                className="rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+              >
+                Clear history
+              </button>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          ) : scannedData ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm break-words">
+              <pre className="whitespace-pre-wrap">{scannedData}</pre>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-500">
+              No QR code detected yet.
+            </p>
           )}
-        </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={copyToClipboard}
+              disabled={!scannedData}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Copy to clipboard
+            </button>
+            {openUrlVisible && (
+              <button
+                onClick={openUrl}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Open URL
+              </button>
+            )}
+          </div>
+        </section>
+
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-800">
+              Scan History
+            </h2>
+            <span className="text-sm text-slate-500">
+              {history.length} saved
+            </span>
+          </div>
+
+          {history.length === 0 ? (
+            <p className="text-sm text-slate-500">No scan history yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {history.map((item, index) => (
+                <button
+                  key={`${item.timestamp}-${index}`}
+                  onClick={() => copyHistoryItem(item.data)}
+                  className="w-full text-left rounded-lg border border-slate-200 bg-slate-50 p-3 hover:border-indigo-300 hover:bg-white"
+                >
+                  <div className="text-xs text-slate-500">
+                    {new Date(item.timestamp).toLocaleString()}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-800 line-clamp-2 break-words">
+                    {item.data}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
