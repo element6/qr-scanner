@@ -93,7 +93,13 @@ export default function App() {
     []
   );
 
+  const scannerRunning = !paused;
   const openUrlVisible = !!scannedData && isValidUrl(scannedData);
+
+  const toggleScanner = () => {
+    setError(null);
+    setPaused((prev) => !prev);
+  };
 
   return (
     <div>
@@ -108,25 +114,21 @@ export default function App() {
         />
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3">
         <button
-          onClick={() => {
-            setError(null);
-            setPaused(false);
-          }}
-          disabled={!paused}
-          className="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded mr-2"
+          onClick={toggleScanner}
+          aria-pressed={scannerRunning}
+          className={`px-4 py-2 rounded text-white ${
+            scannerRunning
+              ? "bg-red-500 hover:bg-red-700"
+              : "bg-green-500 hover:bg-green-700"
+          }`}
         >
-          Start Scanner
+          {scannerRunning ? "Pause scanning" : "Start scanning"}
         </button>
-
-        <button
-          onClick={() => setPaused(true)}
-          disabled={paused}
-          className="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded"
-        >
-          Stop Scanner
-        </button>
+        <span className="text-sm font-medium">
+          {scannerRunning ? "● Scanning" : "○ Paused"}
+        </span>
       </div>
 
       <div className="p-4 border border-gray-300 rounded mb-3 min-h-[20px] bg-gray-50">
