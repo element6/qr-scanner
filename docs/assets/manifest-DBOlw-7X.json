@@ -1,7 +1,7 @@
 {
   "name": "Code Scanner",
   "short_name": "Scanner",
-  "start_url": "/qr-scanner/index.html",
+  "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3498db"
