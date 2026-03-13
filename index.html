@@ -5,85 +5,13 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Code Scanner</title>
-    <script src="js/jsQR.min.js"></script>
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#3498db" />
     <!-- Tailwind CSS CDN -->
     <link href="public/style.css" rel="stylesheet" />
   </head>
   <body class="font-sans max-w-2xl mx-auto p-5 bg-white">
-    <h1 class="text-2xl font-bold mb-4 text-center">Code Scanner</h1>
-
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
-
-        // Limit history size
-        if (history.length > MAX_HISTORY) {
-          history = history.slice(0, MAX_HISTORY);
-        }
-
-        // Save to localStorage
-        localStorage.setItem("qrScanHistory", JSON.stringify(history));
-
-        // Update display
-        loadHistory();
-      }
-
-      function loadHistory() {
-        const history = JSON.parse(localStorage.getItem("qrScanHistory")) || [];
-        historyList.innerHTML = "";
-
-        if (history.length === 0) {
-          historyList.innerHTML =
-            "<p class='text-gray-500'>No scan history yet.</p>";
-          return;
-        }
-
-        history.forEach((item) => {
-          const div = document.createElement("div");
-          div.className =
-            "history-item p-2 border-b border-gray-100 break-all cursor-pointer hover:bg-gray-50";
-
-          const date = new Date(item.timestamp);
-          const timeString = date.toLocaleString();
-
-          div.innerHTML = `
-            <div class="timestamp text-gray-500 text-xs">${timeString}</div>
-            <div>${item.data}</div>
-          `;
-
-          // Click to copy
-          div.addEventListener("click", () => {
-            navigator.clipboard.writeText(item.data).then(() => {
-              const status = document.createElement("span");
-              status.textContent = " ✓ Copied!";
-              status.className = "ml-2 text-green-600";
-              div.appendChild(status);
-              setTimeout(() => {
-                div.removeChild(status);
-              }, 2000);
-            });
-          });
-
-          historyList.appendChild(div);
-        });
-      }
-
-      // Register service worker for offline access
-      if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker
-            .register("js/service-worker.js")
-            .then((reg) => {
-              console.log("Service worker registered.", reg);
-            })
-            .catch((err) => {
-              console.warn("Service worker registration failed:", err);
-            });
-        });
-      }
-    </script>
   </body>
 </html>
