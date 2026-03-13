@@ -153,36 +153,52 @@ export default function App() {
                 {scannerRunning ? "Scanning" : "Paused"}
               </span>
             </div>
-            <button
-              onClick={toggleScanner}
-              aria-pressed={scannerRunning}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold text-white transition ${
-                scannerRunning
-                  ? "bg-red-500 hover:bg-red-600"
-                  : "bg-emerald-500 hover:bg-emerald-600"
-              }`}
-            >
-              {scannerRunning ? "Pause" : "Start"}
-            </button>
           </div>
 
-          <div className="aspect-video bg-black">
-            <Scanner
-              onScan={handleScan}
-              onError={handleError}
-              constraints={deviceConstraints}
-              paused={paused}
-              components={{
-                finder: true,
-                onOff: true,
-                torch: true,
-                zoom: true,
-              }}
-              classNames={{
-                container: "w-full h-full",
-                video: "w-full h-full",
-              }}
-            />
+          <div className="p-4">
+            <div className="relative w-full aspect-square max-w-[400px] mx-auto bg-black overflow-hidden rounded-lg">
+              <Scanner
+                onScan={handleScan}
+                onError={handleError}
+                constraints={deviceConstraints}
+                paused={paused}
+                components={{
+                  finder: false,
+                  onOff: true,
+                  torch: true,
+                  zoom: true,
+                }}
+                classNames={{
+                  container: "w-full h-full",
+                  video: "w-full h-full object-cover",
+                }}
+              />
+              {/* Custom Viewfinder Overlay with Corner Markers */}
+              <div className="absolute inset-0 pointer-events-none z-10">
+                {/* Top-left corner */}
+                <div className="absolute top-[12%] left-[12%] w-8 h-8 border-l-4 border-t-4 border-emerald-500 rounded-tl-lg" />
+                {/* Top-right corner */}
+                <div className="absolute top-[12%] right-[12%] w-8 h-8 border-r-4 border-t-4 border-emerald-500 rounded-tr-lg" />
+                {/* Bottom-left corner */}
+                <div className="absolute bottom-[12%] left-[12%] w-8 h-8 border-l-4 border-b-4 border-emerald-500 rounded-bl-lg" />
+                {/* Bottom-right corner */}
+                <div className="absolute bottom-[12%] right-[12%] w-8 h-8 border-r-4 border-b-4 border-emerald-500 rounded-br-lg" />
+                {/* Scan line */}
+                <div className="absolute left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-[scan_2s_ease-in-out_infinite]" />
+              </div>
+            </div>
+            <div className="mt-3 flex justify-center">
+              <button
+                onClick={toggleScanner}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
+                  scannerRunning
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-emerald-500 hover:bg-emerald-600"
+                }`}
+              >
+                {scannerRunning ? "Pause Scanning" : "Start Scanning"}
+              </button>
+            </div>
           </div>
         </section>
 
