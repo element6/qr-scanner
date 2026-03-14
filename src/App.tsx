@@ -233,16 +233,6 @@ export default function App() {
             <h2 className="text-lg font-semibold text-slate-800">Last Scan</h2>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  setPaused(false);
-                  setError(null);
-                  setNotification("Scanning resumed");
-                }}
-                className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"
-              >
-                Scan again
-              </button>
-              <button
                 onClick={() => setShowClearConfirm(true)}
                 className="rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
               >
