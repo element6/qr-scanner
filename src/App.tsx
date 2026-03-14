@@ -144,9 +144,6 @@ export default function App() {
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold text-slate-800">Code Scanner</h1>
-          <p className="text-sm text-slate-600">
-            Point your camera to a QR code and store scan results in history.
-          </p>
         </header>
 
         {notification && (
