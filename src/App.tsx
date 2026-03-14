@@ -22,6 +22,7 @@ export default function App() {
   const [paused, setPaused] = useState(true);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [notification, setNotification] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -41,6 +42,16 @@ export default function App() {
     const timer = window.setTimeout(() => setNotification(""), 2200);
     return () => window.clearTimeout(timer);
   }, [notification]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowClearConfirm(false);
+    };
+    if (showClearConfirm) {
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }
+  }, [showClearConfirm]);
 
   const persistHistory = (nextHistory: HistoryItem[]) => {
     setHistory(nextHistory);
@@ -82,6 +93,11 @@ export default function App() {
     setHistory([]);
     setNotification("History cleared");
     localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const confirmClear = () => {
+    clearHistory();
+    setShowClearConfirm(false);
   };
 
   const copyToClipboard = async () => {
@@ -217,7 +233,7 @@ export default function App() {
                 Scan again
               </button>
               <button
-                onClick={clearHistory}
+                onClick={() => setShowClearConfirm(true)}
                 className="rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
               >
                 Clear history
@@ -289,6 +305,39 @@ export default function App() {
             </div>
           )}
         </section>
+
+        {showClearConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-history-title"
+          >
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              <h3 id="clear-history-title" className="text-lg font-semibold text-slate-800">
+                Clear scan history?
+              </h3>
+              <p className="mt-2 text-sm text-slate-600">
+                This will delete {history.length} saved scan(s). This action
+                cannot be undone.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmClear}
+                  className="flex-1 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
