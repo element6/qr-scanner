@@ -43,6 +43,16 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [notification]);
 
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowClearConfirm(false);
+    };
+    if (showClearConfirm) {
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }
+  }, [showClearConfirm]);
+
   const persistHistory = (nextHistory: HistoryItem[]) => {
     setHistory(nextHistory);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
@@ -297,9 +307,14 @@ export default function App() {
         </section>
 
         {showClearConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-history-title"
+          >
             <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-              <h3 className="text-lg font-semibold text-slate-800">
+              <h3 id="clear-history-title" className="text-lg font-semibold text-slate-800">
                 Clear scan history?
               </h3>
               <p className="mt-2 text-sm text-slate-600">
