@@ -54,6 +54,36 @@ export default function App() {
     }
   }, [showClearConfirm]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showClearConfirm) return;
+      if (e.target instanceof HTMLInputElement) return;
+
+      switch (e.key.toLowerCase()) {
+        case "c":
+          if (scannedData) {
+            copyToClipboard();
+          }
+          break;
+        case "o":
+          if (isValidUrl(scannedData)) {
+            openUrl();
+          }
+          break;
+        case " ":
+          e.preventDefault();
+          toggleScanner();
+          break;
+        case "?":
+          setNotification("Shortcuts: c=copy, o=open URL, space=toggle scan");
+          break;
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [scannedData, showClearConfirm]);
+
   const handleScan = (detectedCodes: Array<{ rawValue: string }>) => {
     if (!detectedCodes.length) return;
 
@@ -146,6 +176,11 @@ export default function App() {
     []
   );
 
+  const toggleScanner = () => {
+    setError(null);
+    setPaused((prev) => !prev);
+  };
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
@@ -158,6 +193,7 @@ export default function App() {
           onScan={handleScan}
           onError={handleError}
           deviceConstraints={deviceConstraints}
+          onToggle={toggleScanner}
         />
 
         <LastScan
