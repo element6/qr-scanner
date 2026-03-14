@@ -134,6 +134,13 @@ export default function App() {
     });
   };
 
+  const deleteHistoryItem = (index: number) => {
+    const nextHistory = history.filter((_, i) => i !== index);
+    setHistory(nextHistory);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
+    setNotification("History item deleted");
+  };
+
   const deviceConstraints = useMemo(
     () => ({ facingMode: "environment" as const }),
     []
@@ -167,6 +174,7 @@ export default function App() {
           expandedItems={expandedItems}
           onCopyHistoryItem={copyHistoryItem}
           onToggleExpand={toggleExpand}
+          onDeleteItem={deleteHistoryItem}
         />
 
         <ClearConfirmModal
