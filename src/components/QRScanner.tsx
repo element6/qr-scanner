@@ -5,9 +5,10 @@ type QRScannerProps = {
   onScan: (detectedCodes: Array<{ rawValue: string }>) => void;
   onError: (err: unknown) => void;
   deviceConstraints: { facingMode: "environment" };
+  onToggle: () => void;
 };
 
-export function QRScanner({ paused, onScan, onError, deviceConstraints }: QRScannerProps) {
+export function QRScanner({ paused, onScan, onError, deviceConstraints, onToggle }: QRScannerProps) {
   const scannerRunning = !paused;
 
   return (
@@ -52,6 +53,18 @@ export function QRScanner({ paused, onScan, onError, deviceConstraints }: QRScan
             <div className="absolute bottom-[12%] right-[12%] w-8 h-8 border-r-4 border-b-4 border-emerald-500 rounded-br-lg" />
             <div className="absolute left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-[scan_2s_ease-in-out_infinite]" />
           </div>
+        </div>
+        <div className="mt-3 flex justify-center">
+          <button
+            onClick={onToggle}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
+              scannerRunning
+                ? "bg-red-500 hover:bg-red-600"
+                : "bg-emerald-500 hover:bg-emerald-600"
+            }`}
+          >
+            {scannerRunning ? "Pause Scanning" : "Start Scanning"}
+          </button>
         </div>
       </div>
     </section>
