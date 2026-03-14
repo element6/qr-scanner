@@ -292,10 +292,16 @@ export default function App() {
                 <button
                   key={`${item.timestamp}-${index}`}
                   onClick={() => copyHistoryItem(item.data)}
-                  className="w-full text-left rounded-lg border border-slate-200 bg-slate-50 p-3 hover:border-indigo-300 hover:bg-white"
+                  aria-label={`Copy ${item.data}`}
+                  className="group w-full text-left rounded-lg border border-slate-200 bg-slate-50 p-3 hover:border-indigo-400 hover:bg-white hover:shadow-sm cursor-pointer transition-all"
                 >
-                  <div className="text-xs text-slate-500">
-                    {new Date(item.timestamp).toLocaleString()}
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-slate-500">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </div>
+                    <svg className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:text-indigo-500 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
                   </div>
                   <div className="mt-1 text-sm text-slate-800 line-clamp-2 break-words">
                     {item.data}
