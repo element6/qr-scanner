@@ -1,49 +1,46 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Header, Notification, QRScanner, LastScan, ScanHistory, ClearConfirmModal } from "./components";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  Header,
+  Notification,
+  QRScanner,
+  LastScan,
+  ScanHistory,
+  ClearConfirmModal,
+} from "./components";
+import {
+  useHistory,
+  useHistoryExpanded,
+  useClipboard,
+  useNotification,
+  useKeyboardShortcuts,
+} from "./hooks";
+import { isValidUrl } from "./utils/validators";
 
-type HistoryItem = { data: string; timestamp: string };
-const STORAGE_KEY = "qrScanHistory";
-const MAX_HISTORY = 50;
-
-const isValidUrl = (value: string): boolean => {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
+// Shortcut notification messages as constants
+const SHORTCUT_HELP_MESSAGE =
+  "Shortcuts: c=copy, o=open URL, space=toggle scan";
+const SCAN_SAVED_MESSAGE = "Scan saved to history";
+const COPY_SUCCESS_MESSAGE = "Copied latest scan to clipboard";
+const COPY_FAILED_MESSAGE = "Copy failed";
+const HISTORY_COPIED_MESSAGE = "Copied history item";
+const HISTORY_CLEARED_MESSAGE = "History cleared";
+const HISTORY_DELETED_MESSAGE = "History item deleted";
 
 export default function App() {
   const [scannedData, setScannedData] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(true);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [notification, setNotification] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return;
+  // Use custom hooks for separation of concerns
+  const { history, addScan, removeItem, clearHistory } = useHistory();
+  const { expandedItems, toggleExpand } = useHistoryExpanded();
+  const { copy: copyToClipboard } = useClipboard();
+  const { message: notification, notify } = useNotification();
 
-    try {
-      const parsed = JSON.parse(saved) as HistoryItem[];
-      setHistory(parsed);
-    } catch (err) {
-      console.warn("Failed to parse scan history", err);
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!notification) return;
-    const timer = window.setTimeout(() => setNotification(""), 2200);
-    return () => window.clearTimeout(timer);
-  }, [notification]);
-
+  // Handle Escape key for modal
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") setShowClearConfirm(false);
@@ -54,139 +51,125 @@ export default function App() {
     }
   }, [showClearConfirm]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (showClearConfirm) return;
-      if (e.target instanceof HTMLInputElement) return;
+  const handleScan = useCallback(
+    (detectedCodes: Array<{ rawValue: string }>) => {
+      if (!detectedCodes.length) return;
 
-      switch (e.key.toLowerCase()) {
-        case "c":
-          if (scannedData) {
-            copyToClipboard();
-          }
-          break;
-        case "o":
-          if (isValidUrl(scannedData)) {
-            openUrl();
-          }
-          break;
-        case " ":
-          e.preventDefault();
-          toggleScanner();
-          break;
-        case "?":
-          setNotification("Shortcuts: c=copy, o=open URL, space=toggle scan");
-          break;
-      }
-    };
+      const nextValue = detectedCodes[0].rawValue;
+      if (!nextValue) return;
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [scannedData, showClearConfirm]);
+      if (nextValue === scannedData) return;
 
-  const handleScan = (detectedCodes: Array<{ rawValue: string }>) => {
-    if (!detectedCodes.length) return;
+      setScannedData(nextValue);
+      setPaused(true);
+      setError(null);
 
-    const nextValue = detectedCodes[0].rawValue;
-    if (!nextValue) return;
+      // Use the hook to add to history (handles localStorage internally)
+      addScan(nextValue);
 
-    if (nextValue === scannedData) return;
+      notify(SCAN_SAVED_MESSAGE);
+    },
+    [scannedData, addScan, notify]
+  );
 
-    setScannedData(nextValue);
-    setPaused(true);
-    setError(null);
+  const handleError = useCallback(
+    (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      notify("Camera error: " + message);
+      console.error("Scanner error:", err);
+    },
+    [notify]
+  );
 
-    setHistory((prevHistory) => {
-      const nextHistory = [
-        { data: nextValue, timestamp: new Date().toISOString() },
-        ...prevHistory,
-      ].slice(0, MAX_HISTORY);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
-      return nextHistory;
-    });
-
-    setNotification("Scan saved to history");
-  };
-
-  const handleError = (err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    setError(message);
-    setNotification("Camera error: " + message);
-    console.error("Scanner error:", err);
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    setNotification("History cleared");
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const confirmClear = () => {
-    clearHistory();
-    setShowClearConfirm(false);
-  };
-
-  const copyToClipboard = async () => {
+  const handleCopyCurrent = useCallback(async () => {
     if (!scannedData) return;
-    try {
-      await navigator.clipboard.writeText(scannedData);
-      setNotification("Copied latest scan to clipboard");
-    } catch (err) {
-      console.error("Copy failed", err);
-      setNotification("Copy failed");
-    }
-  };
+    const result = await copyToClipboard(scannedData);
+    notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE);
+  }, [scannedData, copyToClipboard, notify]);
 
-  const openUrl = () => {
+  const handleOpenUrl = useCallback(() => {
     if (isValidUrl(scannedData)) {
       window.open(scannedData, "_blank");
     }
-  };
+  }, [scannedData]);
 
-  const copyHistoryItem = async (data: string) => {
-    try {
-      await navigator.clipboard.writeText(data);
-      setNotification("Copied history item");
-    } catch {
-      setNotification("Copy failed");
-    }
-  };
+  const handleCopyHistoryItem = useCallback(
+    async (data: string) => {
+      const result = await copyToClipboard(data);
+      notify(result.success ? HISTORY_COPIED_MESSAGE : COPY_FAILED_MESSAGE);
+    },
+    [copyToClipboard, notify]
+  );
 
-  const toggleExpand = (index: number) => {
-    setExpandedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
-  };
+  const handleDeleteItem = useCallback(
+    (index: number) => {
+      removeItem(index);
+      notify(HISTORY_DELETED_MESSAGE);
+    },
+    [removeItem, notify]
+  );
 
-  const deleteHistoryItem = (index: number) => {
-    const nextHistory = history.filter((_, i) => i !== index);
-    setHistory(nextHistory);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextHistory));
-    setNotification("History item deleted");
-  };
+  const handleConfirmClear = useCallback(() => {
+    clearHistory();
+    notify(HISTORY_CLEARED_MESSAGE);
+    setShowClearConfirm(false);
+  }, [clearHistory, notify]);
+
+  const toggleScanner = useCallback(() => {
+    setError(null);
+    setPaused((prev) => !prev);
+  }, []);
+
+  // Keyboard shortcuts using useKeyboardShortcuts hook
+  const shortcuts = useMemo(
+    () => [
+      {
+        key: "c",
+        handler: () => scannedData && handleCopyCurrent(),
+      },
+      {
+        key: "o",
+        handler: () => isValidUrl(scannedData) && handleOpenUrl(),
+      },
+      {
+        key: " ",
+        handler: () => toggleScanner(),
+      },
+      {
+        key: "?",
+        handler: () => notify(SHORTCUT_HELP_MESSAGE),
+      },
+      {
+        key: "Escape",
+        handler: () => setShowClearConfirm(false),
+      },
+    ],
+    [scannedData, handleCopyCurrent, handleOpenUrl, toggleScanner, notify]
+  );
+  const { handleKeyDown } = useKeyboardShortcuts(shortcuts);
+
+  useEffect(() => {
+    if (showClearConfirm) return;
+
+    const handleDocumentKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      handleKeyDown(e);
+    };
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => document.removeEventListener("keydown", handleDocumentKeyDown);
+  }, [handleKeyDown, showClearConfirm]);
 
   const deviceConstraints = useMemo(
     () => ({ facingMode: "environment" as const }),
     []
   );
 
-  const toggleScanner = () => {
-    setError(null);
-    setPaused((prev) => !prev);
-  };
-
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <Header />
-
-        <Notification message={notification} />
 
         <QRScanner
           paused={paused}
@@ -196,11 +179,12 @@ export default function App() {
           onToggle={toggleScanner}
         />
 
+        <Notification message={notification} />
         <LastScan
           scannedData={scannedData}
           error={error}
-          onCopy={copyToClipboard}
-          onOpenUrl={openUrl}
+          onCopy={handleCopyCurrent}
+          onOpenUrl={handleOpenUrl}
           onClearHistory={() => setShowClearConfirm(true)}
           isValidUrl={isValidUrl}
         />
@@ -208,16 +192,16 @@ export default function App() {
         <ScanHistory
           history={history}
           expandedItems={expandedItems}
-          onCopyHistoryItem={copyHistoryItem}
+          onCopyHistoryItem={handleCopyHistoryItem}
           onToggleExpand={toggleExpand}
-          onDeleteItem={deleteHistoryItem}
+          onDeleteItem={handleDeleteItem}
         />
 
         <ClearConfirmModal
           show={showClearConfirm}
           historyCount={history.length}
           onCancel={() => setShowClearConfirm(false)}
-          onConfirm={confirmClear}
+          onConfirm={handleConfirmClear}
         />
       </div>
     </main>
