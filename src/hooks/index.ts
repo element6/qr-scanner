@@ -5,3 +5,4 @@ export {
   useKeyboardShortcuts,
   type ShortcutHandler,
 } from "./useClipboard";
+export { useQrCode, type UseQrCode } from "./useQrCode";

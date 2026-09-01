@@ -8,6 +8,8 @@ import {
   LastScan,
   ScanHistory,
   ClearConfirmModal,
+  ModeTabs,
+  QrGenerator,
 } from "./components";
 import {
   useHistory,
@@ -15,6 +17,7 @@ import {
   useClipboard,
   useNotification,
   useKeyboardShortcuts,
+  useQrCode,
 } from "./hooks";
 import { isValidUrl } from "./utils/validators";
 
@@ -28,17 +31,46 @@ const HISTORY_COPIED_MESSAGE = "Copied history item";
 const HISTORY_CLEARED_MESSAGE = "History cleared";
 const HISTORY_DELETED_MESSAGE = "History item deleted";
 
+// Tab persistence — separate key from scan history, validated on read.
+const TAB_STORAGE_KEY = "qr-scanner-tab";
+const VALID_TABS: ReadonlyArray<"scan" | "create"> = ["scan", "create"];
+
+function readActiveTab(): "scan" | "create" {
+  try {
+    const raw = localStorage.getItem(TAB_STORAGE_KEY);
+    if (raw !== null && (VALID_TABS as readonly string[]).includes(raw)) {
+      return raw as "scan" | "create";
+    }
+  } catch {
+    // localStorage unavailable (private mode, quota) — fall through to default.
+  }
+  return "scan";
+}
+
 export default function App() {
   const [scannedData, setScannedData] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState<"scan" | "create">(() =>
+    readActiveTab()
+  );
 
   // Use custom hooks for separation of concerns
   const { history, addScan, removeItem, clearHistory } = useHistory();
   const { expandedItems, toggleExpand } = useHistoryExpanded();
   const { copy: copyToClipboard } = useClipboard();
   const { message: notification, notify } = useNotification();
+  const gen = useQrCode();
+
+  // Persist the tab choice across reloads.
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, activeTab);
+    } catch {
+      // localStorage unavailable — tab choice is not persisted this session.
+    }
+  }, [activeTab]);
 
   // Handle Escape key for modal
   useEffect(() => {
@@ -121,6 +153,15 @@ export default function App() {
     setPaused((prev) => !prev);
   }, []);
 
+  // Copy the generator's input text, reusing the clipboard + notification hooks.
+  const handleCopyGenerator = useCallback(
+    async (data: string) => {
+      const result = await copyToClipboard(data);
+      notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE);
+    },
+    [copyToClipboard, notify]
+  );
+
   // Keyboard shortcuts using useKeyboardShortcuts hook
   const shortcuts = useMemo(
     () => [
@@ -153,31 +194,54 @@ export default function App() {
     if (showClearConfirm) return;
 
     const handleDocumentKeyDown = (e: KeyboardEvent) => {
+      // Never fire app shortcuts while focus is in a text field — typing "c"
+      // or space in the generator textarea must not copy/toggle the camera.
       if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+      // Shortcuts act on the Scan tab's scannedData only.
+      if (activeTab !== "scan") return;
       handleKeyDown(e);
     };
 
     document.addEventListener("keydown", handleDocumentKeyDown);
     return () => document.removeEventListener("keydown", handleDocumentKeyDown);
-  }, [handleKeyDown, showClearConfirm]);
+  }, [handleKeyDown, showClearConfirm, activeTab]);
 
   const deviceConstraints = useMemo(
     () => ({ facingMode: "environment" as const }),
     []
   );
 
+  // Camera is paused whenever the user paused it OR the Create tab is active.
+  // Composing here (not CSS-hiding) stops the stream so no Camera access denied
+  // banner leaks when the app boots on Create with permission already granted.
+  const scannerPaused = paused || activeTab !== "scan";
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <Header />
 
-        <QRScanner
-          paused={paused}
-          onScan={handleScan}
-          onError={handleError}
-          deviceConstraints={deviceConstraints}
-          onToggle={toggleScanner}
-        />
+        <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
+
+        {activeTab === "scan" && (
+          <QRScanner
+            paused={scannerPaused}
+            onScan={handleScan}
+            onError={handleError}
+            deviceConstraints={deviceConstraints}
+            onToggle={toggleScanner}
+          />
+        )}
+
+        {activeTab === "create" && (
+          <QrGenerator
+            text={gen.text}
+            result={gen.result}
+            onChange={gen.setText}
+            onCopy={handleCopyGenerator}
+          />
+        )}
 
         <Notification message={notification} />
         <LastScan
