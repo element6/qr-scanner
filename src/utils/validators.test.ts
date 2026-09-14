@@ -9,6 +9,7 @@ import {
   isValidHistoryItem,
   createHistoryItem,
   addToHistory,
+  normalizeHistoryItems,
   type HistoryItem,
 } from "./validators";
 
@@ -133,5 +134,147 @@ describe("addToHistory", () => {
 
     expect(result.length).toBe(1);
     expect(result[0].data).toBe("new");
+  });
+});
+
+describe("createHistoryItem (id)", () => {
+  it("produces a non-empty unique id", () => {
+    const a = createHistoryItem("https://example.com");
+    const b = createHistoryItem("https://example.com");
+
+    expect(typeof a.id).toBe("string");
+    expect(a.id.length).toBeGreaterThan(0);
+    expect(a.id).not.toBe(b.id);
+  });
+});
+
+describe("addToHistory (dedupe by value)", () => {
+  const mk = (data: string, ts: string): HistoryItem => ({
+    id: "id-" + data + "-" + ts,
+    data,
+    timestamp: ts,
+  });
+
+  it("moves a duplicate value to the top and refreshes its timestamp", () => {
+    const existing: HistoryItem[] = [
+      mk("A", "2024-01-01T00:00:00.000Z"),
+      mk("B", "2024-01-01T00:00:00.001Z"),
+    ];
+    const newItem = mk("A", "2024-01-01T00:00:00.002Z");
+
+    const result = addToHistory(existing, newItem, 5);
+
+    expect(result.length).toBe(2);
+    expect(result[0].data).toBe("A");
+    expect(result[0].timestamp).toBe("2024-01-01T00:00:00.002Z");
+    expect(result[1].data).toBe("B");
+  });
+
+  it("appends a new value at the top", () => {
+    const existing: HistoryItem[] = [
+      mk("A", "2024-01-01T00:00:00.000Z"),
+      mk("B", "2024-01-01T00:00:00.001Z"),
+    ];
+    const newItem = mk("C", "2024-01-01T00:00:00.002Z");
+
+    const result = addToHistory(existing, newItem, 5);
+
+    expect(result.length).toBe(3);
+    expect(result.map((i) => i.data)).toEqual(["C", "A", "B"]);
+  });
+
+  it("enforces capacity exactly when a duplicate is present", () => {
+    const existing: HistoryItem[] = [
+      mk("A", "2024-01-01T00:00:00.000Z"),
+      mk("B", "2024-01-01T00:00:00.001Z"),
+      mk("C", "2024-01-01T00:00:00.002Z"),
+    ];
+    const newItem = mk("A", "2024-01-01T00:00:00.003Z");
+
+    const result = addToHistory(existing, newItem, 2);
+
+    expect(result.length).toBe(2);
+    expect(result.map((i) => i.data)).toEqual(["A", "B"]);
+  });
+});
+
+describe("normalizeHistoryItems", () => {
+  it("backfills ids on legacy entries without an id", () => {
+    const result = normalizeHistoryItems(
+      [
+        { data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
+        { data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
+      ],
+      50
+    );
+
+    expect(result.length).toBe(2);
+    expect(result.every((i) => typeof i.id === "string" && i.id.length > 0)).toBe(true);
+    expect(result.map((i) => i.data)).toEqual(["A", "B"]);
+  });
+
+  it("collapses value duplicates, preserving first-seen order", () => {
+    const result = normalizeHistoryItems(
+      [
+        { id: "x", data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
+        { id: "y", data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
+        { id: "z", data: "A", timestamp: "2024-01-01T00:00:00.002Z" },
+      ],
+      50
+    );
+
+    expect(result.length).toBe(2);
+    expect(result.map((i) => i.data)).toEqual(["A", "B"]);
+    expect(result[0].id).toBe("x");
+  });
+
+  it("caps the result to maxHistory", () => {
+    const items = Array.from({ length: 5 }, (_, i) => ({
+      id: "id" + i,
+      data: "v" + i,
+      timestamp: "2024-01-01T00:00:00.000Z",
+    }));
+
+    const result = normalizeHistoryItems(items, 3);
+
+    expect(result.length).toBe(3);
+    expect(result.map((i) => i.data)).toEqual(["v0", "v1", "v2"]);
+  });
+
+  it("drops invalid entries", () => {
+    const result = normalizeHistoryItems(
+      [
+        { id: "ok", data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
+        null,
+        { data: "missing-ts", timestamp: 123 },
+        { data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
+      ],
+      50
+    );
+
+    expect(result.length).toBe(2);
+    expect(result.map((i) => i.data)).toEqual(["A", "B"]);
+  });
+
+  it("backfills ids and collapses duplicates in the same legacy pass", () => {
+    // Legacy store: no ids at all, and the same value scanned twice.
+    const result = normalizeHistoryItems(
+      [
+        { data: "A", timestamp: "2024-01-01T00:00:00.001Z" },
+        { data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
+        { data: "B", timestamp: "2024-01-01T00:00:00.002Z" },
+      ],
+      50
+    );
+
+    expect(result.length).toBe(2);
+    expect(result.map((i) => i.data)).toEqual(["A", "B"]);
+    // First-seen occurrence survives (stored arrays are newest-first).
+    expect(result[0].timestamp).toBe("2024-01-01T00:00:00.001Z");
+    for (const item of result) {
+      expect(typeof item.id).toBe("string");
+      expect(item.id.length).toBeGreaterThan(0);
+    }
+    expect(result[0].id).not.toBe(result[1].id);
   });
 });

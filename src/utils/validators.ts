@@ -35,17 +35,60 @@ export function isValidUrl(value: string): boolean {
  * Type guard to check if a value is a valid history item.
  */
 export interface HistoryItem {
+  id: string;
   data: string;
   timestamp: string;
 }
 
 /**
- * Validates if an unknown value matches the HistoryItem type.
+ * Persisted (on-disk) history shape. `id` is optional because entries written
+ * before ids existed are still in users' localStorage, and
+ * `normalizeHistoryItems` backfills one on load. `isValidHistoryItem`
+ * validates THIS shape: its predicate previously claimed `HistoryItem`, i.e.
+ * a non-empty `id` that it never checked.
+ */
+export type PersistedHistoryItem = Omit<HistoryItem, "id"> & { id?: unknown };
+
+/**
+ * Generates a stable unique id for a history item.
+ *
+ * Prefers `crypto.randomUUID()` when available (modern browsers, jsdom).
+ * Falls back to a composite of the current time and a random value so it
+ * works in older environments. Never throws.
+ */
+export function createHistoryId(): string {
+  const cryptoObj: unknown =
+    typeof globalThis !== "undefined"
+      ? (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
+      : undefined;
+  if (
+    cryptoObj &&
+    typeof cryptoObj === "object" &&
+    typeof (cryptoObj as { randomUUID?: unknown }).randomUUID === "function"
+  ) {
+    try {
+      return (cryptoObj as { randomUUID: () => string }).randomUUID();
+    } catch {
+      // Fall through to the deterministic fallback.
+    }
+  }
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+
+
+/**
+ * Validates if an unknown value matches the persisted HistoryItem shape.
+ *
+ * Deliberately does NOT require `id`: it must keep accepting legacy entries.
+ * Callers that need a guaranteed id go through `normalizeHistoryItems`.
  *
  * @param item - The value to validate
  * @returns true if the item has required data and timestamp properties
  */
-export function isValidHistoryItem(item: unknown): item is HistoryItem {
+export function isValidHistoryItem(
+  item: unknown
+): item is PersistedHistoryItem {
   if (typeof item !== "object" || item === null) {
     return false;
   }
@@ -68,6 +111,7 @@ export function isValidHistoryItem(item: unknown): item is HistoryItem {
  */
 export function createHistoryItem(data: string): HistoryItem {
   return {
+    id: createHistoryId(),
     data,
     timestamp: new Date().toISOString(),
   };
@@ -86,5 +130,42 @@ export function addToHistory(
   newItem: HistoryItem,
   maxHistory: number
 ): HistoryItem[] {
-  return [newItem, ...history].slice(0, maxHistory);
+  const rest = history.filter((item) => item.data !== newItem.data);
+  return [newItem, ...rest].slice(0, maxHistory);
+}
+
+/**
+ * Normalizes a raw, persisted history array.
+ *
+ * Keeps only items passing `isValidHistoryItem`, backfills a fresh id onto
+ * legacy items that are missing or carry an invalid `id`, collapses value
+ * duplicates (newest wins, preserving first-seen order otherwise), and caps
+ * the result to `maxHistory`.
+ *
+ * @param items - Raw array as parsed from storage
+ * @param maxHistory - Maximum number of items to keep
+ * @returns A clean, id-bearing `HistoryItem[]`
+ */
+export function normalizeHistoryItems(
+  items: unknown[],
+  maxHistory: number
+): HistoryItem[] {
+  const seen = new Set<string>();
+  const result: HistoryItem[] = [];
+  for (const item of items) {
+    if (!isValidHistoryItem(item)) {
+      continue;
+    }
+    const candidate = item;
+    const id =
+      typeof candidate.id === "string" && candidate.id.length > 0
+        ? candidate.id
+        : createHistoryId();
+    if (seen.has(candidate.data)) {
+      continue;
+    }
+    seen.add(candidate.data);
+    result.push({ id, data: candidate.data, timestamp: candidate.timestamp });
+  }
+  return result.slice(0, maxHistory);
 }

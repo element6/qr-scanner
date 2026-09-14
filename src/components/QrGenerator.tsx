@@ -31,16 +31,24 @@ export function QrGenerator({
 
   // Retain the last successful render so a failed encode keeps the previous
   // valid code on screen (spec §4.1 R5, §5, §8) while showing the warning.
+  // Reset the retained render only when there is nothing to encode (empty
+  // text), which also covers the ~150 ms debounce window in useQrCode.ts
+  // where `result` is still the previous successful result after the user
+  // clears the field. Clearing on `!result.ok` would destroy the R5 feature.
   const lastGood = useRef<{ url: string; alt: string } | null>(null);
-  if (result?.ok && result.dataUrl) {
+  if (text === "") {
+    lastGood.current = null;
+  } else if (result?.ok && result.dataUrl) {
     lastGood.current = { url: result.dataUrl, alt: "QR code for: " + text };
   }
   const preview =
-    result?.ok && result.dataUrl
-      ? { url: result.dataUrl, alt: "QR code for: " + text }
-      : lastGood.current;
+    text === ""
+      ? null
+      : result?.ok && result.dataUrl
+        ? { url: result.dataUrl, alt: "QR code for: " + text }
+        : lastGood.current;
   const errorCard =
-    result && !result.ok ? (
+    text !== "" && result && !result.ok ? (
       <div className="mx-auto max-w-sm text-center">
         <p className="text-sm font-semibold text-amber-700">
           Could not generate a code

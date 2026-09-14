@@ -20,6 +20,7 @@ import {
   useQrCode,
 } from "./hooks";
 import { isValidUrl } from "./utils/validators";
+import { shouldIgnoreShortcut } from "./utils/keyboardGuard";
 import { describeOutcome, readClipboardImage, scanImageFile } from "./utils/scanImage";
 
 // Shortcut notification messages as constants
@@ -204,8 +205,8 @@ export default function App() {
   );
 
   const handleDeleteItem = useCallback(
-    (index: number) => {
-      removeItem(index);
+    (id: string) => {
+      removeItem(id);
       notify(HISTORY_DELETED_MESSAGE);
     },
     [removeItem, notify]
@@ -263,10 +264,11 @@ export default function App() {
     if (showClearConfirm) return;
 
     const handleDocumentKeyDown = (e: KeyboardEvent) => {
-      // Never fire app shortcuts while focus is in a text field — typing "c"
-      // or space in the generator textarea must not copy/toggle the camera.
-      if (e.target instanceof HTMLInputElement) return;
-      if (e.target instanceof HTMLTextAreaElement) return;
+      // Never fire app shortcuts while focus is in a text field, button,
+      // select, or rich-text host — typing "c" or space in the generator
+      // textarea must not copy/toggle the camera, and tabbing to a Copy/Open
+      // URL/Pause button must not fire its shortcut either.
+      if (shouldIgnoreShortcut(e.target)) return;
       // Shortcuts act on the Scan tab's scannedData only.
       if (activeTab !== "scan") return;
       handleKeyDown(e);

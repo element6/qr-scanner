@@ -8,7 +8,7 @@ import {
   HistoryItem,
   createHistoryItem,
   addToHistory,
-  isValidHistoryItem,
+  normalizeHistoryItems,
 } from "../utils/validators";
 
 const STORAGE_KEY = "qrScanHistory";
@@ -29,8 +29,8 @@ export function useHistory() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const validItems = parsed.filter(isValidHistoryItem);
-          setHistory(validItems);
+          const normalized = normalizeHistoryItems(parsed, MAX_HISTORY);
+          setHistory(normalized);
         }
       }
     } catch (err) {
@@ -67,13 +67,13 @@ export function useHistory() {
   );
 
   /**
-   * Removes an item from history by index.
-   * @param index - The index of the item to remove
+   * Removes an item from history by id.
+   * @param id - The id of the item to remove
    */
   const removeItem = useCallback(
-    (index: number) => {
+    (id: string) => {
       setHistory((prev) => {
-        const updated = prev.filter((_, i) => i !== index);
+        const updated = prev.filter((item) => item.id !== id);
         saveToStorage(updated);
         return updated;
       });
@@ -103,22 +103,22 @@ export function useHistory() {
  * Hook for managing the expanded state of history items.
  */
 export function useHistoryExpanded() {
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  const toggleExpand = useCallback((index: number) => {
+  const toggleExpand = useCallback((id: string) => {
     setExpandedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
+      if (next.has(id)) {
+        next.delete(id);
       } else {
-        next.add(index);
+        next.add(id);
       }
       return next;
     });
   }, []);
 
   const isExpanded = useCallback(
-    (index: number) => expandedItems.has(index),
+    (id: string) => expandedItems.has(id),
     [expandedItems]
   );
 
