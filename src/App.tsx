@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Header,
   Notification,
@@ -20,6 +20,7 @@ import {
   useQrCode,
 } from "./hooks";
 import { isValidUrl } from "./utils/validators";
+import { describeOutcome, readClipboardImage, scanImageFile } from "./utils/scanImage";
 
 // Shortcut notification messages as constants
 const SHORTCUT_HELP_MESSAGE =
@@ -83,26 +84,94 @@ export default function App() {
     }
   }, [showClearConfirm]);
 
-  const handleScan = useCallback(
-    (detectedCodes: Array<{ rawValue: string }>) => {
-      if (!detectedCodes.length) return;
+  // Image-scan state — owned by App so a tab switch cannot strand a
+  // "Decoding…" label (AC8). Paused lives with the camera, not here (§7.5).
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageStatus, setImageStatus] = useState<string | null>(null);
+  const imageBusyRef = useRef(false);
 
-      const nextValue = detectedCodes[0].rawValue;
-      if (!nextValue) return;
-
-      if (nextValue === scannedData) return;
-
-      setScannedData(nextValue);
-      setPaused(true);
+  /** Shared tail: camera and image scans write state identically (R7, §7.4).
+   *  Dedupe is source-aware — camera keeps the silent early return; image
+   *  surfaces "Already the latest scan" instead (Round-1 B1, §7.3).
+   *  Camera pauses the feed because it just caught the code it was looking for;
+   *  an image scan never touches `paused` (§7.5). */
+  const applyDetectedValue = useCallback(
+    (value: string, source: "camera" | "image", count?: number) => {
+      if (!value) return;
+      if (source === "camera") {
+        if (value === scannedData) return;
+        setScannedData(value);
+        setPaused(true);
+        setError(null);
+        addScan(value);
+        notify(SCAN_SAVED_MESSAGE);
+        return;
+      }
+      if (value === scannedData) {
+        notify("Already the latest scan");
+        return;
+      }
+      setScannedData(value);
       setError(null);
-
-      // Use the hook to add to history (handles localStorage internally)
-      addScan(nextValue);
-
-      notify(SCAN_SAVED_MESSAGE);
+      addScan(value);
+      const suffix = count !== undefined && count > 1 ? ` — ${count} codes found` : "";
+      notify(`Scanned ${value}${suffix}`);
     },
     [scannedData, addScan, notify]
   );
+
+  const handleScan = useCallback(
+    (detectedCodes: Array<{ rawValue: string }>) => {
+      if (!detectedCodes.length) return;
+      const nextValue = detectedCodes[0].rawValue;
+      if (!nextValue) return;
+      applyDetectedValue(nextValue, "camera");
+    },
+    [applyDetectedValue]
+  );
+
+  /** Guards: `busy` (AC7), then validation (AC5), then scanImageFile.
+   *  `busy` resets in `finally`; the preprocess bounds detector time by
+   *  construction, so no timeout race is needed (§7.4). */
+  const handleImageFile = useCallback(
+    async (file: File | null) => {
+      if (!file) return; // dismissed chooser is silent (AC2)
+      if (imageBusyRef.current) return; // AC7: overlapping decodes ignored
+      imageBusyRef.current = true;
+      setImageBusy(true);
+      setImageStatus(null);
+      try {
+        const outcome = await scanImageFile(file);
+        if (outcome.ok) {
+          setImageStatus(null);
+          applyDetectedValue(outcome.value, "image", outcome.count);
+        } else {
+          setImageStatus(describeOutcome(outcome));
+        }
+      } catch (err) {
+        // Belt-and-braces: scanImageFile classifies failures itself; a throw
+        // here means setup broke. Surface the §7.7 string, never crash (AC9).
+        console.error("Image scan failed:", err);
+        setImageStatus(
+          describeOutcome({ ok: false, kind: "decode-failed", name: file.name })
+        );
+      } finally {
+        setImageBusy(false);
+        imageBusyRef.current = false;
+      }
+    },
+    [applyDetectedValue]
+  );
+
+  const handleImagePasteClick = useCallback(async () => {
+    if (imageBusyRef.current) return; // AC7
+    const result = await readClipboardImage();
+    if (result instanceof File) {
+      await handleImageFile(result);
+      return;
+    }
+    setImageStatus(describeOutcome(result)); // narrowed to ClipboardFailure
+  }, [handleImageFile]);
 
   const handleError = useCallback(
     (err: unknown) => {
@@ -231,6 +300,10 @@ export default function App() {
             onError={handleError}
             deviceConstraints={deviceConstraints}
             onToggle={toggleScanner}
+            imageBusy={imageBusy}
+            imageStatus={imageStatus}
+            onImageFile={handleImageFile}
+            onImagePasteClick={handleImagePasteClick}
           />
         )}
 

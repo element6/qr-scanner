@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scan tab — image scan UI (mock v2)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f1f5f9; font-family: ui-sans-serif, system-ui, sans-serif; color: #0f172a; }
+  .wrap { max-width: 980px; margin: 16px auto; padding: 0 12px 32px; }
+  .pagehead { font-size: 13px; color: #475569; margin-bottom: 6px; }
+  .legend { font-size: 10.5px; color: #94a3b8; line-height: 1.5; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 12px rgba(15,23,42,.05); overflow: hidden; }
+  .cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; padding: 16px; }
+  .cardhead .name { font-size: 14px; font-weight: 600; }
+  .badge { border-radius: 999px; padding: 2px 10px; font-size: 11px; font-weight: 700; background: #d1fae5; color: #065f46; }
+  .cardbody { padding: 16px; }
+  .video { position: relative; width: 100%; aspect-ratio: 1; max-width: 280px; margin: 0 auto; background: #020617; border-radius: 8px; overflow: hidden; }
+  .video.dragover { outline: 3px dashed #10b981; outline-offset: 3px; }
+  .corners i { position: absolute; width: 22px; height: 22px; }
+  .corners i:nth-child(1) { left: 12%; top: 12%; border-left: 4px solid #10b981; border-top: 4px solid #10b981; }
+  .corners i:nth-child(2) { right: 12%; top: 12%; border-right: 4px solid #10b981; border-top: 4px solid #10b981; }
+  .corners i:nth-child(3) { left: 12%; bottom: 12%; border-left: 4px solid #10b981; border-bottom: 4px solid #10b981; }
+  .corners i:nth-child(4) { right: 12%; bottom: 12%; border-right: 4px solid #10b981; border-bottom: 4px solid #10b981; }
+  .scanline { position: absolute; left: 12%; right: 12%; top: 12%; height: 2px; background: linear-gradient(to right, transparent, #10b981, transparent); animation: sl 2s ease-in-out infinite; }
+  @keyframes sl { 0%,100% { top: 12%; } 50% { top: 84%; } }
+  .scanning { position: absolute; right: 6px; top: 6px; font-size: 10px; color: #e2e8f0; background: rgba(2,6,23,.6); padding: 1px 6px; border-radius: 4px; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-top: 12px; }
+  button.act { border: 0; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; background: #10b981; }
+  button.ghost { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  button.ghost:hover { border-color: #10b981; color: #047857; background: #ecfdf5; }
+  .status { display: flex; align-items: center; gap: 8px; min-height: 20px; margin-top: 8px; justify-content: center; }
+  .status .dot { width: 9px; height: 9px; border-radius: 999px; background: #cbd5e1; }
+  .status.busy .dot { background: #f59e0b; animation: blink 1s infinite; }
+  .status.ok .dot { background: #10b981; }
+  .status.err .dot { background: #ef4444; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .status .txt { font-size: 12.5px; color: #475569; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #f59e0b; border-top-color: transparent; border-radius: 999px; animation: rot .7s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .banner-new { position: absolute; top: -10px; right: -6px; background: #10b981; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .card.new { position: relative; }
+  .help { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.4; }
+  .toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; z-index: 50; }
+  .toast.show { opacity: 1; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+  .pill { border: 1px solid #cbd5e1; background: #fff; color: #475569; font-size: 11px; padding: 3px 9px; border-radius: 999px; cursor: pointer; }
+  .pill.sel { background: #0f172a; color: #fff; border-color: #0f172a; }
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="wrap">
+  <p class="pagehead"><b>Scan from an image</b> — mock v2: one row, two buttons, one status line (spec §7.7 copy budget; feedback: "too verbose" + mobile Paste)</p>
+  <label class="legend"><input type="checkbox" id="simdrag"> simulate drag-over ring on the right card</label>
+
+  <div class="cols">
+    <!-- BEFORE -->
+    <div class="card">
+      <div class="cardhead"><span class="name">Camera</span><span class="badge">Scanning</span></div>
+      <div class="cardbody">
+        <div class="video"><div class="corners"><i></i><i></i><i></i><i></i></div><div class="scanline"></div><span class="scanning">scanning…</span></div>
+        <div class="actions"><button class="act">Pause Scanning</button></div>
+        <p class="help"><b>Today.</b> Camera only — no way in for a screenshot or a file.</p>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="card new">
+      <span class="banner-new">NEW</span>
+      <div class="cardhead"><span class="name">Camera</span><span class="badge">Scanning</span></div>
+      <div class="cardbody">
+        <div class="video" id="video"><div class="corners"><i></i><i></i><i></i><i></i></div><div class="scanline"></div><span class="scanning">scanning…</span></div>
+        <div class="actions">
+          <button class="act">Pause Scanning</button>
+          <input id="file" type="file" accept="image/*" style="display:none">
+          <button class="ghost" id="choose">Choose image…</button>
+          <button class="ghost" id="paste">Paste</button>
+        </div>
+        <div class="status" id="stat"><span class="dot" id="sdot"></span><span class="txt" id="stxt"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="legend" style="margin-top:14px">Prototype controls — drive the right card's status line (strings from spec R5/AC3/AC9/AC11 + §10):</p>
+  <div class="pills" id="pills"></div>
+</div>
+<script>
+(function(){
+  var S = {
+    hidden:   { cls: "",      sw: false, txt: "" },
+    busy:     { cls: "busy",  sw: true,  txt: "Decoding image…" },
+    ok:       { cls: "ok",    sw: false, txt: "Scanned from image — saved to history" },
+    dup:      { cls: "ok",    sw: false, txt: "Already the latest scan" },
+    notfound: { cls: "err",   sw: false, txt: "No code found in this image" },
+    toolarge: { cls: "err",   sw: false, txt: "Image is too large (20 MB max)" },
+    notimage: { cls: "err",   sw: false, txt: "That file isn’t an image" },
+    clipdenied:{ cls: "err",  sw: false, txt: "Clipboard unavailable — choose a file instead" }
+  };
+  var statEl = document.getElementById("stat"), sdot = document.getElementById("sdot"), stxt = document.getElementById("stxt");
+  function setStatus(k, silent){
+    var s = S[k];
+    statEl.className = "status " + s.cls;
+    sdot.innerHTML = s.sw ? '<span class="spinner"></span>' : "";
+    stxt.textContent = s.txt;
+    [].slice.call(document.getElementById("pills").children).forEach(function(p){ p.className = "pill" + (p.dataset.k === k ? " sel" : ""); });
+    if (!silent && (k === "ok" || k === "notfound")) showToast(s.txt);
+  }
+  Object.keys(S).forEach(function(k){
+    var b = document.createElement("button");
+    b.className = "pill"; b.dataset.k = k; b.textContent = k;
+    b.onclick = function(){ setStatus(k); };
+    document.getElementById("pills").appendChild(b);
+  });
+  var t = document.getElementById("toast"), timer;
+  function showToast(m){ t.textContent = m; t.classList.add("show"); clearTimeout(timer); timer = setTimeout(function(){ t.classList.remove("show"); }, 2200); }
+  document.getElementById("choose").onclick = function(){ document.getElementById("file").click(); };
+  document.getElementById("file").onchange = function(){ play(); };
+  document.getElementById("paste").onclick = function(){ play(); };
+  function play(){
+    setStatus("busy", true);
+    setTimeout(function(){ setStatus("ok"); }, 900);
+  }
+  document.getElementById("simdrag").onchange = function(){ document.getElementById("video").classList.toggle("dragover", this.checked); };
+  setStatus("hidden");
+})();
+</script>
+</body>
+</html>

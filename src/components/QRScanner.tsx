@@ -1,4 +1,6 @@
+import { useRef, useState } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import { ImageScanControl } from "./ImageScanControl";
 
 type QRScannerProps = {
   paused: boolean;
@@ -6,10 +8,51 @@ type QRScannerProps = {
   onError: (err: unknown) => void;
   deviceConstraints: { facingMode: "environment" };
   onToggle: () => void;
+  /** Image path — owned by App, presented here so drag & drop lands on the frame (R2). */
+  imageBusy: boolean;
+  imageStatus: string | null;
+  onImageFile: (file: File | null) => void;
+  onImagePasteClick: () => void;
 };
 
-export function QRScanner({ paused, onScan, onError, deviceConstraints, onToggle }: QRScannerProps) {
+export function QRScanner({
+  paused,
+  onScan,
+  onError,
+  deviceConstraints,
+  onToggle,
+  imageBusy,
+  imageStatus,
+  onImageFile,
+  onImagePasteClick,
+}: QRScannerProps) {
   const scannerRunning = !paused;
+  const frameRef = useRef<HTMLDivElement>(null);
+  const dragDepth = useRef(0);
+  const [dragActive, setDragActive] = useState(false);
+
+  function enter(e: React.DragEvent) {
+    e.preventDefault();
+    if (imageBusy) return;
+    dragDepth.current++;
+    setDragActive(true);
+  }
+  function over(e: React.DragEvent) {
+    e.preventDefault();
+    if (imageBusy) return;
+    e.dataTransfer.dropEffect = "copy";
+  }
+  function leave() {
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragActive(false);
+  }
+  function drop(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragActive(false);
+    if (imageBusy) return;
+    onImageFile(e.dataTransfer.files[0] ?? null);
+  }
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -29,7 +72,18 @@ export function QRScanner({ paused, onScan, onError, deviceConstraints, onToggle
       </div>
 
       <div className="p-4">
-        <div className="relative w-full aspect-square max-w-[400px] mx-auto bg-black overflow-hidden rounded-lg">
+        <div
+          ref={frameRef}
+          onDragEnter={enter}
+          onDragOver={over}
+          onDragLeave={leave}
+          onDrop={drop}
+          className={`relative w-full aspect-square max-w-[400px] mx-auto overflow-hidden rounded-lg bg-black ring-offset-2 transition ${
+            dragActive
+              ? "ring-4 ring-emerald-400 ring-offset-slate-50"
+              : "ring-0"
+          }`}
+        >
           <Scanner
             onScan={onScan}
             onError={onError}
@@ -66,6 +120,12 @@ export function QRScanner({ paused, onScan, onError, deviceConstraints, onToggle
             {scannerRunning ? "Pause Scanning" : "Start Scanning"}
           </button>
         </div>
+        <ImageScanControl
+          busy={imageBusy}
+          status={imageStatus}
+          onFile={onImageFile}
+          onPasteClick={onImagePasteClick}
+        />
       </div>
     </section>
   );

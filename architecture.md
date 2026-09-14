@@ -80,3 +80,34 @@ PNG/SVG file download, Wi-Fi/vCard/SMS structured forms, custom colors/logos,
 saving generated codes into scan history (needs a `HistoryItem` direction
 field = storage migration), server-side encoding, batch generation, and a
 separate `/generate` route.
+## Scan-from-image feature (specs/scan-image-from-file.md)
+
+```
+main.tsx → App
+  ├── Header
+  ├── ModeTabs (Scan | Create)
+  ├── QRScanner  (only on Scan tab)            composed pause
+  │     └── ImageScanControl                   NEW (footer row of the Scan card)
+  ├── QrGenerator (only on Create tab)
+  ├── Notification
+  ├── LastScan
+  ├── ScanHistory
+  └── ClearConfirmModal
+```
+
+### New modules
+
+| Module | Responsibility |
+|--------|----------------|
+| `src/utils/scanImage.ts` | Decode a matrix code from an image `File`. Pure parts — `validateImageFile` (R9 gates: empty, >20 MB, non-image), `toOutcome` (first non-empty `rawValue`; `count` from result length), `describeOutcome` (the one home for §7.7 normative strings, incl. clipboard kinds) — sit beside the one impure `scanImageFile` (preprocess `createImageBitmap` ≤ 2048 px EXIF-normalized, detect, retry raw once below the 40 MP budget, `bitmap.close()` on every path). `clipboardImageFromDataTransfer` (paste-event image) and `readClipboardImage` (Paste-button async Clipboard API) normalize the two R3 entry paths into the same funnel. |
+| `src/utils/scanImage.test.ts` | Vitest unit tests under jsdom: validation order, size cap, extension fallback, outcome mapping, exact copy strings, bitmap-close and retry-budget behavior with an injected detector (no wasm). |
+| `src/components/ImageScanControl.tsx` | Presentational row: **Choose image…** (hidden `<input type="file" accept="image/*">`) + **Paste** + always-mounted `role="status"` line; document-level paste (skips text fields, images only) and dragover/drop `preventDefault` so a stray drop cannot navigate the SPA. Props: `busy`, `status`, `onFile`, `onPasteClick`. |
+| `src/components/QRScanner.tsx` | Owns the drag-highlight counter on the camera frame (`dragenter`++ / `dragleave`-- / `drop` reset) and forwards `onImageFile`; the image path never touches `paused` (§7.5). |
+| `src/App.tsx` | `applyDetectedValue(value, source, count?)` is the single write tail for camera and image scans (source-aware dedupe: camera silent, image → "Already the latest scan" toast; count suffix "— N codes found"). `imageBusy`/`imageStatus` live in App so tab switches cannot strand "Decoding…" (AC8); `handleImageFile` guards overlap (AC7) and resets busy in `finally`. |
+
+`barcode-detector` (ponyfill entry only — the root entry would install a global
+`BarcodeDetector`, spec §7.1) is the sole new dependency; wasm/zxing load on
+first use via Vite dynamic import, same pattern as `qrcode` above. The Scan tab's
+copy budget is exactly two button labels + the status line; `LastScan` and
+`Notification` unchanged. No camera/settings changes; history stays source-less
+(`from image` provenance deferred).
