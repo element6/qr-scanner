@@ -14,7 +14,6 @@ export interface UseQrCode {
   text: string;
   setText: (t: string) => void;
   result: QrEncodeResult | null;
-  pending: boolean;
 }
 
 /**
@@ -23,7 +22,6 @@ export interface UseQrCode {
 export function useQrCode(delayMs = 150): UseQrCode {
   const [text, setText] = useState("");
   const [result, setResult] = useState<QrEncodeResult | null>(null);
-  const [pending, setPending] = useState(false);
 
   // Refs so the effect always reads the latest values without re-binding.
   const textRef = useRef(text);
@@ -48,29 +46,24 @@ export function useQrCode(delayMs = 150): UseQrCode {
   const setTextDebounced = (next: string) => {
     setText(next);
     if (timerRef.current) clearTimeout(timerRef.current);
-    setPending(true);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       if (!mountedRef.current) return;
       const current = textRef.current;
       if (current === "") {
         setResult(null);
-        setPending(false);
         return;
       }
       encodeQrSvg(current)
         .then((res) => {
           if (!mountedRef.current) return;
           setResult(res);
-          setPending(false);
         })
         .catch(() => {
           // encodeQrSvg never rejects, but stay defensive.
-          if (!mountedRef.current) return;
-          setPending(false);
         });
     }, delayRef.current);
   };
 
-  return { text, setText: setTextDebounced, result, pending };
+  return { text, setText: setTextDebounced, result };
 }

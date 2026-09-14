@@ -83,6 +83,11 @@ export function createHistoryId(): string {
  * Deliberately does NOT require `id`: it must keep accepting legacy entries.
  * Callers that need a guaranteed id go through `normalizeHistoryItems`.
  *
+ * `data` must be a non-empty string and `timestamp` must parse as a real date —
+ * `{data:"", timestamp:"not-a-date"}` previously passed and survived into the
+ * live array (useHistory.ts:38 wiped the whole key on any parse error instead
+ * of rejecting the bad entries).
+ *
  * @param item - The value to validate
  * @returns true if the item has required data and timestamp properties
  */
@@ -93,14 +98,21 @@ export function isValidHistoryItem(
     return false;
   }
 
-  const hasData =
-    "data" in item &&
-    typeof (item as Record<string, unknown>).data === "string";
-  const hasTimestamp =
-    "timestamp" in item &&
-    typeof (item as Record<string, unknown>).timestamp === "string";
+  const rec = item as Record<string, unknown>;
+  const data = rec.data;
+  const timestamp = rec.timestamp;
 
-  return hasData && hasTimestamp;
+  if (
+    typeof data !== "string" ||
+    data.length === 0 ||
+    typeof timestamp !== "string" ||
+    timestamp.length === 0 ||
+    Number.isNaN(Date.parse(timestamp))
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

@@ -20,7 +20,6 @@ const MAX_HISTORY = 50;
  */
 export function useHistory() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -29,15 +28,18 @@ export function useHistory() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
+          // `normalizeHistoryItems` rejects malformed entries instead of the
+          // whole array; only a structural parse error wipes the key.
           const normalized = normalizeHistoryItems(parsed, MAX_HISTORY);
           setHistory(normalized);
         }
       }
     } catch (err) {
+      // Log and leave the key alone: a structural parse error must not wipe the
+      // user's whole history (useHistory.ts:38). Malformed entries are rejected
+      // individually by `normalizeHistoryItems`; only genuinely unparseable
+      // storage lands here, and destroying it would be the worse failure.
       console.warn("Failed to parse scan history", err);
-      localStorage.removeItem(STORAGE_KEY);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
@@ -56,14 +58,16 @@ export function useHistory() {
    */
   const addScan = useCallback(
     (data: string) => {
+      // Compute the next state first, then commit state and persist — never
+      // write localStorage inside a React state updater (useHistory.ts:60-64):
+      // updaters may run twice in StrictMode and would double-persist stale
+      // `prev`.
       const newItem = createHistoryItem(data);
-      setHistory((prev) => {
-        const updated = addToHistory(prev, newItem, MAX_HISTORY);
-        saveToStorage(updated);
-        return updated;
-      });
+      const updated = addToHistory(history, newItem, MAX_HISTORY);
+      setHistory(updated);
+      saveToStorage(updated);
     },
-    [saveToStorage]
+    [history, saveToStorage]
   );
 
   /**
@@ -72,13 +76,11 @@ export function useHistory() {
    */
   const removeItem = useCallback(
     (id: string) => {
-      setHistory((prev) => {
-        const updated = prev.filter((item) => item.id !== id);
-        saveToStorage(updated);
-        return updated;
-      });
+      const updated = history.filter((item) => item.id !== id);
+      setHistory(updated);
+      saveToStorage(updated);
     },
-    [saveToStorage]
+    [history, saveToStorage]
   );
 
   /**
@@ -91,11 +93,9 @@ export function useHistory() {
 
   return {
     history,
-    isLoading,
     addScan,
     removeItem,
     clearHistory,
-    maxHistory: MAX_HISTORY,
   };
 }
 
@@ -117,14 +117,8 @@ export function useHistoryExpanded() {
     });
   }, []);
 
-  const isExpanded = useCallback(
-    (id: string) => expandedItems.has(id),
-    [expandedItems]
-  );
-
   return {
     expandedItems,
     toggleExpand,
-    isExpanded,
   };
 }

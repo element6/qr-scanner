@@ -41,7 +41,7 @@ main.tsx → App
 |--------|----------------|
 | `src/utils/qrcode.ts` | Pure encoder wrapper. `encodeQrSvg(text)` calls `qrcode`'s browser build (`toString`, `type: "svg"`, EC `M`, margin 2) and wraps the SVG in a `data:image/svg+xml;base64,` URL via `btoa`. `utf8ByteLength` uses `TextEncoder`. `BYTE_MODE_MAX_BYTES = 2331` is messaging-only — the encoder is the authority on capacity. |
 | `src/utils/qrcode.test.ts` | Vitest unit tests for the wrapper (empty, data-url prefix, 2,331-byte render, 2,953-byte refuse, 5,000-digit numeric render, emoji byte count, ASCII-only SVG). |
-| `src/hooks/useQrCode.ts` | Debounced (default 150 ms) text → `{ text, setText, result, pending }`. Cancels the timer on unmount/superseding; never writes state after unmount. Text lives here so it survives tab switches. |
+| `src/hooks/useQrCode.ts` | Debounced (default 150 ms) text → `{ text, setText, result }`. Cancels the timer on unmount/superseding; never writes state after unmount. Text lives here so it survives tab switches. |
 | `src/components/ModeTabs.tsx` | Accessible `role="tablist"` segmented control: `Scan` / `Create`, arrow-key navigation, `aria-selected`. |
 | `src/components/QrGenerator.tsx` | Presentational: textarea, byte readout, soft warning above 2,331 bytes, `<img>` preview (empty → placeholder, error → warning card, pending → "Generating…"), "Copy text" button. Owns no app state. |
 

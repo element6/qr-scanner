@@ -17,12 +17,11 @@ tech_stack:
     - @yudiel/react-qr-scanner 2.5.1
   build:
     - Vite 8.0.0
-    - @vitejs/plugin-react 6.0.0
     - @tailwindcss/vite 4.1.11
   dev:
     - TypeScript types
-    - Autoprefixer
-    - PostCSS
+    - @vitejs/plugin-react 6.0.0
+    - Vitest 3.0.0
 
 entry_points:
   - src/main.tsx         # React entry point
@@ -64,7 +63,7 @@ deployment:
   output: docs/ folder
   base_path: /qr-scanner/
 
-tests: none
+tests: vitest 3.0.0 (5 files, 71 tests — qrcode, scanImage, validators, keyboardGuard, QrGenerator)
 linting: none
 ```
 
@@ -117,4 +116,4 @@ linting: none
 
 ---
 
-**Summary:** A lightweight React QR scanner PWA that uses the device camera to scan codes, stores history in localStorage, and can open valid URLs. Built with Vite + Tailwind CSS, deploys to GitHub Pages. No tests or linting configured.
+**Summary:** A lightweight React QR scanner PWA that uses the device camera to scan codes, stores history in localStorage, and can open valid URLs. Built with Vite + Tailwind CSS, deploys to GitHub Pages. Tested with Vitest (71 tests); no linting configured.

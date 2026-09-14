@@ -192,7 +192,7 @@ export default function App() {
 
   const handleOpenUrl = useCallback(() => {
     if (isValidUrl(scannedData)) {
-      window.open(scannedData, "_blank");
+      window.open(scannedData, "_blank", "noopener");
     }
   }, [scannedData]);
 
@@ -296,7 +296,8 @@ export default function App() {
         <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === "scan" && (
-          <QRScanner
+          <div id="panel-scan">
+            <QRScanner
             paused={scannerPaused}
             onScan={handleScan}
             onError={handleError}
@@ -307,15 +308,18 @@ export default function App() {
             onImageFile={handleImageFile}
             onImagePasteClick={handleImagePasteClick}
           />
+          </div>
         )}
 
         {activeTab === "create" && (
-          <QrGenerator
-            text={gen.text}
-            result={gen.result}
-            onChange={gen.setText}
-            onCopy={handleCopyGenerator}
-          />
+          <div id="panel-create">
+            <QrGenerator
+              text={gen.text}
+              result={gen.result}
+              onChange={gen.setText}
+              onCopy={handleCopyGenerator}
+            />
+          </div>
         )}
 
         <Notification message={notification} />

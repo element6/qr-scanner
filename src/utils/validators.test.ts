@@ -55,6 +55,7 @@ describe("isValidUrl", () => {
 describe("isValidHistoryItem", () => {
   it("should return true for valid history items", () => {
     const validItem: HistoryItem = {
+      id: "test-valid-1",
       data: "https://example.com",
       timestamp: "2024-01-01T00:00:00.000Z",
     };
@@ -89,10 +90,11 @@ describe("createHistoryItem", () => {
 describe("addToHistory", () => {
   it("should add a new item to the beginning of history", () => {
     const existing: HistoryItem[] = [
-      { data: "old1", timestamp: "2024-01-01T00:00:00.000Z" },
-      { data: "old2", timestamp: "2024-01-01T00:00:00.001Z" },
+      { id: "test-old1-0.000", data: "old1", timestamp: "2024-01-01T00:00:00.000Z" },
+      { id: "test-old2-0.001", data: "old2", timestamp: "2024-01-01T00:00:00.001Z" },
     ];
     const newItem: HistoryItem = {
+      id: "test-new-0.002",
       data: "new",
       timestamp: "2024-01-01T00:00:00.002Z",
     };
@@ -106,11 +108,12 @@ describe("addToHistory", () => {
 
   it("should trim history to max size", () => {
     const existing: HistoryItem[] = [
-      { data: "item1", timestamp: "2024-01-01T00:00:00.001Z" },
-      { data: "item2", timestamp: "2024-01-01T00:00:00.002Z" },
-      { data: "item3", timestamp: "2024-01-01T00:00:00.003Z" },
+      { id: "test-item1-0.001", data: "item1", timestamp: "2024-01-01T00:00:00.001Z" },
+      { id: "test-item2-0.002", data: "item2", timestamp: "2024-01-01T00:00:00.002Z" },
+      { id: "test-item3-0.003", data: "item3", timestamp: "2024-01-01T00:00:00.003Z" },
     ];
     const newItem: HistoryItem = {
+      id: "test-new-0.004",
       data: "new",
       timestamp: "2024-01-01T00:00:00.004Z",
     };
@@ -126,6 +129,7 @@ describe("addToHistory", () => {
 
   it("should handle empty history", () => {
     const newItem: HistoryItem = {
+      id: "test-new-0.000",
       data: "new",
       timestamp: "2024-01-01T00:00:00.000Z",
     };
@@ -202,8 +206,8 @@ describe("normalizeHistoryItems", () => {
   it("backfills ids on legacy entries without an id", () => {
     const result = normalizeHistoryItems(
       [
-        { data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
-        { data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
+        { id: "test-A-0.000", data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
+        { id: "test-B-0.001", data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
       ],
       50
     );
@@ -247,7 +251,7 @@ describe("normalizeHistoryItems", () => {
         { id: "ok", data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
         null,
         { data: "missing-ts", timestamp: 123 },
-        { data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
+        { id: "test-B-0.001", data: "B", timestamp: "2024-01-01T00:00:00.001Z" },
       ],
       50
     );
@@ -260,9 +264,9 @@ describe("normalizeHistoryItems", () => {
     // Legacy store: no ids at all, and the same value scanned twice.
     const result = normalizeHistoryItems(
       [
-        { data: "A", timestamp: "2024-01-01T00:00:00.001Z" },
-        { data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
-        { data: "B", timestamp: "2024-01-01T00:00:00.002Z" },
+        { id: "test-A-0.001", data: "A", timestamp: "2024-01-01T00:00:00.001Z" },
+        { id: "test-A-0.000", data: "A", timestamp: "2024-01-01T00:00:00.000Z" },
+        { id: "test-B-0.002", data: "B", timestamp: "2024-01-01T00:00:00.002Z" },
       ],
       50
     );

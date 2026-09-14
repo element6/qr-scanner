@@ -9,7 +9,7 @@
  * Import the ponyfill, not the root entry: the root module installs a global
  * `window.BarcodeDetector` polyfill, which this app must not do (spec §7.1).
  */
-import { BarcodeDetector } from "barcode-detector/ponyfill";
+import { BarcodeDetector, type BarcodeDetectorOptions } from "barcode-detector/ponyfill";
 
 /** R9: reject before decode so a huge file can never lock the tab. */
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
@@ -23,7 +23,7 @@ const MAX_RETRY_PIXELS = 40_000_000;
 /** Matrix codes only (QR, DataMatrix, Aztec, PDF417…) — spec R10 / AC1.
  *  `matrix_codes` is the group alias; the ponyfill rejects mixing it with a
  *  member of the group, so it is the sole entry. */
-const DETECTOR_OPTIONS = { formats: ["matrix_codes"] };
+const DETECTOR_OPTIONS = { formats: ["matrix_codes"] } as unknown as BarcodeDetectorOptions;
 
 /** Extensions we trust when `File.type` is empty (common on drop transfers). */
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|tiff?|heic|heif|avif)$/i;
@@ -149,7 +149,12 @@ export function clipboardImageFromDataTransfer(
 /** R3b: Paste-button path — `navigator.clipboard.read()` → first `image/*`
  *  item → Blob. Each rejection class is a `ClipboardFailure` (AC11).
  *  App intentionally *consumes* these with describeOutcome; the helper never
- *  throws. */
+ *  throws.
+ *
+ *  Resilient: a single item/type that rejects (a transient `getType` failure,
+ *  an unsupported mime, a denied sub-permission) does NOT abort the whole
+ *  read — iterate every item and every image type, take the first successful
+ *  blob, and only fail after exhausting the clipboard (scanImage.ts:168-180). */
 export async function readClipboardImage(): Promise<File | ClipboardFailure> {
   if (
     typeof navigator === "undefined" ||
@@ -165,20 +170,26 @@ export async function readClipboardImage(): Promise<File | ClipboardFailure> {
       e instanceof DOMException && (e as DOMException).name === "NotAllowedError";
     return { kind: denied ? "clipboard-denied" : "clipboard-unavailable" };
   }
+  let lastFailure: ClipboardFailure | null = null;
   for (const item of items) {
-    const type = item.types.find((t) => t.startsWith("image/"));
-    if (!type) continue;
-    try {
-      const blob = await item.getType(type);
-      if (!blob) continue;
-      return new File([blob], "pasted-image", { type });
-    } catch (e) {
-      const denied =
-        e instanceof DOMException && (e as DOMException).name === "NotAllowedError";
-      return { kind: denied ? "clipboard-denied" : "clipboard-unavailable" };
+    // Try every image type on this item, not just the first — a multi-mime
+    // clipboard may carry the same image under several encodings.
+    for (const type of item.types) {
+      if (!type.startsWith("image/")) continue;
+      try {
+        const blob = await item.getType(type);
+        if (blob) return new File([blob], "pasted-image", { type });
+      } catch (e) {
+        const denied =
+          e instanceof DOMException &&
+          (e as DOMException).name === "NotAllowedError";
+        lastFailure = {
+          kind: denied ? "clipboard-denied" : "clipboard-unavailable",
+        };
+      }
     }
   }
-  return { kind: "clipboard-empty" };
+  return lastFailure ?? { kind: "clipboard-empty" };
 }
 
 /** Lazily constructed, reused detector — never recreated per scan (§7.3). */

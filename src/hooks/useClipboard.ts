@@ -18,8 +18,6 @@ export interface ClipboardResult {
  * Provides async copy functionality with error handling.
  */
 export function useClipboard() {
-  const [lastResult, setLastResult] = useState<ClipboardResult | null>(null);
-
   /**
    * Copies text to the clipboard.
    * @param text - The text to copy
@@ -27,36 +25,19 @@ export function useClipboard() {
    */
   const copy = useCallback(async (text: string): Promise<ClipboardResult> => {
     if (!text) {
-      const result = { success: false, error: "No text to copy" };
-      setLastResult(result);
-      return result;
+      return { success: false, error: "No text to copy" };
     }
 
     try {
       await navigator.clipboard.writeText(text);
-      const result = { success: true };
-      setLastResult(result);
-      return result;
+      return { success: true };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Copy failed";
-      const result = { success: false, error: errorMessage };
-      setLastResult(result);
-      return result;
+      return { success: false, error: errorMessage };
     }
   }, []);
 
-  /**
-   * Clears the last result state.
-   */
-  const clearResult = useCallback(() => {
-    setLastResult(null);
-  }, []);
-
-  return {
-    copy,
-    lastResult,
-    clearResult,
-  };
+  return { copy };
 }
 
 /**
