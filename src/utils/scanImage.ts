@@ -9,7 +9,61 @@
  * Import the ponyfill, not the root entry: the root module installs a global
  * `window.BarcodeDetector` polyfill, which this app must not do (spec §7.1).
  */
-import { BarcodeDetector, type BarcodeDetectorOptions } from "barcode-detector/ponyfill";
+import {
+  BarcodeDetector,
+  setZXingModuleOverrides,
+  type BarcodeDetectorOptions,
+} from "barcode-detector/ponyfill";
+
+/** PWA/offline: the vendored reader binary. Baked into the build from
+ *  `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm`; see README. */
+export const ZXING_WASM_PATH = "zxing/zxing_reader.wasm";
+
+/** Only the reader variant is vendored — `scanImage` never encodes (the
+ *  `qrcode` library is pure JS). Any other variant falls back to the CDN. */
+const ZXING_WASM_READER_RE = /_reader\.wasm$/;
+
+/** Mirrors the upstream default in `zxing-wasm`; used only as the fallback for
+ *  variants that are deliberately not self-hosted. */
+const ZXING_CDN_BASE =
+  "https://fastly.jsdelivr.net/npm/zxing-wasm@2.2.4/dist/";
+
+/**
+ * Where zxing should fetch its wasm from. Self-hosted so image decoding works
+ * with no network: the upstream default downloads every binary from jsDelivr at
+ * runtime, which silently breaks offline scanning even when the app shell is
+ * cached. `base` is Vite's `BASE_URL` (`/qr-scanner/`), so the path survives the
+ * GitHub Pages sub-path.
+ *
+ * Pure and exported for tests: `locateFile` is called by Emscripten, not by us.
+ */
+export function resolveWasmPath(file: string, base: string): string {
+  if (ZXING_WASM_READER_RE.test(file)) return `${base}${ZXING_WASM_PATH}`;
+  const variant = file.match(/_(.+?)\.wasm$/);
+  return variant ? `${ZXING_CDN_BASE}${variant[1]}/${file}` : file;
+}
+
+/** `base` is normalised here rather than at the call site: a bare relative path
+ *  would resolve against the *page*, not the service-worker scope. */
+const WASM_BASE = ((): string => {
+  const base: unknown = import.meta.env?.BASE_URL;
+  if (typeof base !== "string" || base === "") return "/";
+  return base.endsWith("/") ? base : `${base}/`;
+})();
+
+/**
+ * The Emscripten `locateFile` hook. Typed explicitly because
+ * `EmscriptenModule['locateFile']` is untyped in `@types/emscripten`, which
+ * would otherwise make these parameters implicitly `any` under `strict`.
+ */
+export function makeLocateFile(base: string) {
+  return (file: string): string => resolveWasmPath(file, base);
+}
+
+// Registered at module load, before `getDetector` can construct anything:
+// `setZXingModuleOverrides` only records the overrides (fireImmediately: false),
+// so this is synchronous and instantiates no wasm.
+setZXingModuleOverrides({ locateFile: makeLocateFile(WASM_BASE) });
 
 /** R9: reject before decode so a huge file can never lock the tab. */
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;

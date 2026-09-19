@@ -2,12 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/qr-scanner/vite.svg" />
+    <link rel="apple-touch-icon" href="/qr-scanner/icons/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Code Scanner</title>
-    <link rel="manifest" href="manifest.json" />
+    <!-- The web app manifest <link> is injected at build time by
+         vite-plugin-pwa from the `manifest` option in vite.config.ts. It is not
+         hand-written here: the previous hand-written link pointed at a
+         manifest.json that was never copied into the build. -->
     <meta name="theme-color" content="#3498db" />
-    <!-- Tailwind CSS CDN -->
+    <!-- iOS does not read `display` from the manifest; these opt the
+         home-screen app into standalone mode. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Scanner" />
+    <!-- Processed by the Tailwind Vite plugin; resolves to the public asset. -->
     <link href="public/style.css" rel="stylesheet" />
   </head>
   <body class="font-sans max-w-2xl mx-auto p-5 bg-white">

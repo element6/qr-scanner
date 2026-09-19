@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Code Scanner">
+  <title>Code Scanner</title>
+  <rect width="512" height="512" rx="112" fill="#3498db" />
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="square">
+    <path d="M156 112 H146 A34 34 0 0 0 112 146 V156" />
+    <path d="M356 112 H366 A34 34 0 0 1 400 146 V156" />
+    <path d="M156 400 H146 A34 34 0 0 1 112 366 V356" />
+    <path d="M356 400 H366 A34 34 0 0 0 400 366 V356" />
+  </g>
+  <g fill="#ffffff">
+    <rect x="176" y="176" width="68" height="68" rx="14" />
+    <rect x="268" y="176" width="68" height="68" rx="14" />
+    <rect x="176" y="268" width="68" height="68" rx="14" />
+    <rect x="268" y="268" width="34" height="34" rx="8" />
+    <rect x="302" y="302" width="34" height="34" rx="8" />
+  </g>
+  <rect x="96" y="240" width="320" height="28" rx="14" fill="#1f6fa8" />
+  <rect x="96" y="240" width="320" height="6" rx="3" fill="#ffffff" opacity="0.9" />
+</svg>

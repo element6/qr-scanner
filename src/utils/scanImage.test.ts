@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   MAX_IMAGE_BYTES,
+  ZXING_WASM_PATH,
   describeOutcome,
+  makeLocateFile,
+  resolveWasmPath,
   scanImageFile,
   toOutcome,
   validateImageFile,
@@ -250,5 +253,33 @@ describe("scanImageFile (AC5, AC13)", () => {
       vi.unstubAllGlobals();
       log.mockRestore();
     }
+  });
+});
+
+describe("offline wasm resolution (PWA)", () => {
+  it("serves the reader binary from the app itself, under the deploy base", () => {
+    // The regression this guards: the upstream default fetches this file from
+    // jsDelivr, which makes image scanning the only feature that dies offline.
+    expect(resolveWasmPath("zxing_reader.wasm", "/qr-scanner/")).toBe(
+      `/qr-scanner/${ZXING_WASM_PATH}`
+    );
+    expect(resolveWasmPath("zxing_reader.wasm", "/")).toBe(`/${ZXING_WASM_PATH}`);
+  });
+
+  it("keeps the CDN fallback for variants that are not vendored", () => {
+    // Only the reader is shipped; a writer/full request must still resolve
+    // rather than 404 against our own origin.
+    expect(resolveWasmPath("zxing_writer.wasm", "/qr-scanner/")).toContain(
+      "zxing-wasm@2.2.4/dist/writer/zxing_writer.wasm"
+    );
+    // An unrecognised name is passed through untouched.
+    expect(resolveWasmPath("something-else.js", "/qr-scanner/")).toBe(
+      "something-else.js"
+    );
+  });
+
+  it("exposes locateFile bound to a single base", () => {
+    const locate = makeLocateFile("/qr-scanner/");
+    expect(locate("zxing_reader.wasm")).toBe(`/qr-scanner/${ZXING_WASM_PATH}`);
   });
 });

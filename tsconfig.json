@@ -10,7 +10,10 @@
     "allowImportingTsExtensions": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // `vite/client` declares `import.meta.env` (BASE_URL), which src/main.tsx
+    // uses to locate the service worker.
+    "types": ["vite/client"]
   },
   "include": ["src/**/*"]
 }
