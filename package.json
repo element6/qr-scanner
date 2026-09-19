@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build:local": "vite build --base /",
+    "build:local": "vite build --mode root",
     "preview:local": "npx serve docs",
     "typecheck": "tsc --noEmit",
+    "check:wasm": "node scripts/check-wasm.mjs",
     "test": "vitest",
     "test:run": "vitest run"
   },

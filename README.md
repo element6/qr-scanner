@@ -33,12 +33,18 @@ are load-bearing:
    `node_modules/zxing-wasm/dist/reader/`) and wired up by overriding
    Emscripten's `locateFile` in `src/utils/scanImage.ts`. Only the *reader*
    variant is vendored; anything else falls back to the CDN. To refresh it after
-   a `zxing-wasm` upgrade, copy the file again (the checksum must match the
-   library's exported `ZXING_WASM_SHA256`):
+   a `zxing-wasm` upgrade, copy the file again:
 
    ```
    cp node_modules/zxing-wasm/dist/reader/zxing_reader.wasm public/zxing/
+   npm run check:wasm
    ```
+
+   `check:wasm` hashes the committed binary and compares it against the
+   library's own exported `ZXING_WASM_SHA256`. CI runs it before the build,
+   because a dependency bump that refreshes `node_modules` without re-running
+   the copy would otherwise leave a stale binary in place and break image
+   scanning **offline only**, with no build error.
 
 2. **Registration is a plain `navigator.serviceWorker.register()`** in
    `src/main.tsx`, not the plugin's `virtual:pwa-register` helper. That helper
@@ -77,10 +83,24 @@ sips -s format png --resampleHeightWidth 512 512 icon-maskable.svg --out icon-ma
 ## Scripts
 
 ```
-npm run dev       # start the Vite dev server
-npm run build     # build to docs/
-npm run preview   # serve the built docs/ (needed to test the service worker)
-npm run typecheck # tsc --noEmit
-npm run test      # vitest (watch)
-npm run test:run  # vitest (single run)
+npm run dev           # start the Vite dev server
+npm run build         # build to docs/ (base /qr-scanner/)
+npm run preview       # serve the built docs/ (needed to test the service worker)
+npm run build:local   # build with base / (local/root deploy)
+npm run preview:local # serve that local build
+npm run typecheck     # tsc --noEmit
+npm run check:wasm    # verify the vendored zxing wasm matches zxing-wasm
+npm run test          # vitest (watch)
+npm run test:run      # vitest (single run)
 ```
+
+The deploy base lives in exactly one place — `BASE` in `vite.config.ts`, derived
+from Vite's `mode` (`build:local` passes `--mode root` to select `/`). The Vite
+`base`, the manifest's `id`/`start_url`/`scope`, and the service worker's
+`navigateFallbackDenylist` all derive from it, and `index.html` uses
+`%BASE_URL%` for its icons. Both builds therefore produce a correctly scoped,
+installable app.
+
+Do **not** switch this back to a `--base` CLI flag: that overrides Vite's `base`
+while leaving the manifest and denylist untouched, which is exactly how a
+root-base build ends up installing a PWA scoped to `/qr-scanner/`.

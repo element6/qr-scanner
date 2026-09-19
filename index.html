@@ -2,8 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/qr-scanner/vite.svg" />
-    <link rel="apple-touch-icon" href="/qr-scanner/icons/icon-192.png" />
+    <!-- %BASE_URL% is substituted by Vite, so these resolve under whatever base
+         the build uses (`/qr-scanner/` for Pages, `/` for `build:local`).
+         A hardcoded `/qr-scanner/...` 404s under any other base. -->
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%vite.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Code Scanner</title>
     <!-- The web app manifest <link> is injected at build time by
