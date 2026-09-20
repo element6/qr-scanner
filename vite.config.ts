@@ -55,8 +55,15 @@ export default defineConfig(({ mode }) => {
             // so these stay correct under any base without interpolation.
             { src: "icons/icon-192.png", sizes: "192x192", type: "image/png" },
             { src: "icons/icon-512.png", sizes: "512x512", type: "image/png" },
+            // The `-v2` suffix is load-bearing, not cosmetic. Chrome treats
+            // manifest icon URLs as immutable and does not download an icon at
+            // all while the manifest's `icons` field is unchanged, so rewriting
+            // the PNG behind the same URL is invisible to an app that is
+            // already installed. Bumping the filename is what makes Chrome
+            // fetch the new bitmap and offer "Review app update" on the phone.
+            // Rename it again (v3, ...) on every icon change.
             {
-              src: "icons/icon-maskable-512.png",
+              src: "icons/icon-maskable-512-v2.png",
               sizes: "512x512",
               type: "image/png",
               purpose: "maskable",

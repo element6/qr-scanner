@@ -74,11 +74,16 @@ Network → **Offline** + reload to confirm it starts with no network.
 cd public/icons
 sips -s format png --resampleHeightWidth 512 512 icon.svg --out icon-512.png
 sips -s format png --resampleHeightWidth 192 192 icon.svg --out icon-192.png
-sips -s format png --resampleHeightWidth 512 512 icon-maskable.svg --out icon-maskable-512.png
+sips -s format png --resampleHeightWidth 512 512 icon-maskable.svg --out icon-maskable-512-v2.png
 ```
 
 `icon.svg` is the normal icon; `icon-maskable.svg` is the maskable variant
 (full-bleed background, glyph inside Android's inner 80% safe zone).
+
+The maskable PNG's filename is versioned (`-v2`) on purpose: Chrome will not
+re-download an icon while the manifest's `icons` field is unchanged, so an
+installed app only picks up a new icon when that URL changes. Bump the suffix
+and the `src` in `vite.config.ts` together whenever the icon artwork changes.
 
 ## Scripts
 
