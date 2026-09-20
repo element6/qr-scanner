@@ -108,12 +108,20 @@ main.tsx → App
 `BarcodeDetector`, spec §7.1) is the sole new dependency. Its wasm binary is
 **not** fetched from a CDN at runtime any more: it is self-hosted for offline use
 — see "PWA / offline" below. The Scan tab's copy budget is exactly two button
-labels + the status line; `Notification` unchanged. The former `LastScan` panel
+labels + the status line. The former `LastScan` panel
 was removed because `addToHistory` already prepends the newest decode to
 `ScanHistory`, so the two showed the same value; its Open URL action moved onto
 the history rows and its Clear history button into the `ScanHistory` header. No
 camera/settings changes; history stays source-less (`from image` provenance
 deferred).
+
+`Notification` is the only feedback surface left for camera and clipboard
+failures, so it carries a `tone` (`info` | `error`) — an error must not be
+painted success-green. It also renders `sr-only` while empty instead of a
+non-breaking-space placeholder box, so an idle app shows no blank bar and the
+empty node consumes no `space-y-*` gap (it is absolutely positioned). The
+live region stays mounted in both states: unmounting it would drop the
+announcement before a screen reader fires it.
 
 ## PWA / offline
 

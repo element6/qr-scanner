@@ -63,7 +63,11 @@ export default function App() {
   const { history, addScan, removeItem, clearHistory } = useHistory();
   const { expandedItems, toggleExpand } = useHistoryExpanded();
   const { copy: copyToClipboard } = useClipboard();
-  const { message: notification, notify } = useNotification();
+  const {
+    message: notification,
+    tone: notificationTone,
+    notify,
+  } = useNotification();
   const gen = useQrCode();
 
   // Persist the tab choice across reloads.
@@ -176,7 +180,7 @@ export default function App() {
   const handleError = useCallback(
     (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
-      notify("Camera error: " + message);
+      notify("Camera error: " + message, { tone: "error" });
       console.error("Scanner error:", err);
     },
     [notify]
@@ -185,7 +189,9 @@ export default function App() {
   const handleCopyCurrent = useCallback(async () => {
     if (!scannedData) return;
     const result = await copyToClipboard(scannedData);
-    notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE);
+    notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE, {
+      tone: result.success ? "info" : "error",
+    });
   }, [scannedData, copyToClipboard, notify]);
 
   // Takes the value explicitly rather than reading `scannedData`: the Open URL
@@ -200,7 +206,9 @@ export default function App() {
   const handleCopyHistoryItem = useCallback(
     async (data: string) => {
       const result = await copyToClipboard(data);
-      notify(result.success ? HISTORY_COPIED_MESSAGE : COPY_FAILED_MESSAGE);
+      notify(result.success ? HISTORY_COPIED_MESSAGE : COPY_FAILED_MESSAGE, {
+        tone: result.success ? "info" : "error",
+      });
     },
     [copyToClipboard, notify]
   );
@@ -227,7 +235,9 @@ export default function App() {
   const handleCopyGenerator = useCallback(
     async (data: string) => {
       const result = await copyToClipboard(data);
-      notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE);
+      notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE, {
+      tone: result.success ? "info" : "error",
+    });
     },
     [copyToClipboard, notify]
   );
@@ -322,7 +332,7 @@ export default function App() {
           </div>
         )}
 
-        <Notification message={notification} />
+        <Notification message={notification} tone={notificationTone} />
 
         <ScanHistory
           history={history}

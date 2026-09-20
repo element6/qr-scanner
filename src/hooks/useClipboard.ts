@@ -40,25 +40,37 @@ export function useClipboard() {
   return { copy };
 }
 
+/** Visual tone of a notification. An error must not render as success green. */
+export type NotificationTone = "info" | "error";
+
+export type NotifyOptions = {
+  tone?: NotificationTone;
+  duration?: number;
+};
+
 /**
  * Hook for managing notification state with auto-dismiss.
  */
 export function useNotification(initialValue = "") {
   const [message, setMessage] = useState(initialValue);
+  const [tone, setTone] = useState<NotificationTone>("info");
   const timerRef = useRef<number | undefined>(undefined);
 
   /**
    * Shows a notification message that auto-dismisses after a delay.
    * @param msg - The message to display
-   * @param duration - Time in ms before auto-dismiss (default: 2200)
+   * @param options.tone - "info" (default) or "error"
+   * @param options.duration - Time in ms before auto-dismiss (default: 2200)
    */
-  const notify = useCallback((msg: string, duration = 2200) => {
+  const notify = useCallback((msg: string, options: NotifyOptions = {}) => {
+    const { tone: nextTone = "info", duration = 2200 } = options;
     // Clear any existing timer before setting a new one
     if (timerRef.current !== undefined) {
       window.clearTimeout(timerRef.current);
     }
 
     setMessage(msg);
+    setTone(nextTone);
     if (duration > 0) {
       timerRef.current = window.setTimeout(() => {
         setMessage("");
@@ -80,6 +92,7 @@ export function useNotification(initialValue = "") {
 
   return {
     message,
+    tone,
     notify,
     clear,
     isVisible: message !== "",
