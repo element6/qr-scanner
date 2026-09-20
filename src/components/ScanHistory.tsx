@@ -51,11 +51,16 @@ function HistoryRow({
     if (!el) return;
 
     // Read a clamped box's *clientHeight* against an unclamped box's
-    // *scrollHeight* — never a clamped box's own scrollHeight. Some engines
-    // report scrollHeight === clientHeight for a `-webkit-line-clamp` box,
-    // which would hide the control for every clipped value; both readings here
-    // are ordinary layout measurements. The clamp is toggled synchronously
-    // inside this callback, so nothing paints in between and it cannot flash.
+    // *scrollHeight*, never a clamped box's own scrollHeight.
+    //
+    // Measured in Blink (headless Chrome at 712px and 288px, values from 1 to
+    // 60 lines): `scrollHeight` on the clamped box is reported correctly, so
+    // the naive `scrollHeight - clientHeight` happens to agree. This is
+    // therefore defensive, not a workaround for a reproduced bug: it drops the
+    // dependence on a reading WebKit is not verified to report the same way,
+    // and iOS Safari is a primary target for camera scanning. Both readings
+    // used here are plain block-layout measurements. The clamp is toggled
+    // synchronously inside this callback, so nothing paints in between.
     const hadClamp = el.classList.contains("line-clamp-2");
     if (!hadClamp) el.classList.add("line-clamp-2");
     const clampedHeight = el.clientHeight;
