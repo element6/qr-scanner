@@ -36,13 +36,13 @@ drag & drop  ─┼→ validate → BarcodeDetector.detect(blob) → rawValue �
 paste (⌘V)   ─┘                                                      (= today's handleScan tail)
 ```
 
-The decoded value lands in `scannedData`, `LastScan`, and `useHistory` exactly as a camera
-scan does. No new dependency, no second result model, no change to the Create tab.
+The decoded value lands in `scannedData`, the `ScanHistory` list, and `useHistory` exactly as a
+camera scan does. No new dependency, no second result model, no change to the Create tab.
 
 ## 3. User stories
 
-- As a desktop user, I press ⌘V on a screenshot of a QR code and the value appears in
-  Last Scan, so I never need a camera.
+- As a desktop user, I press ⌘V on a screenshot of a QR code and the value appears at
+  the top of Scan History, so I never need a camera.
 - As a user, I drag an image from my file manager onto the camera frame and it decodes,
   so I don't hunt for an "Upload" button.
 - As a user, when an image has no code in it I get told *"No code found in this image"*
@@ -64,7 +64,7 @@ scan does. No new dependency, no second result model, no change to the Create ta
 | R3 | Clipboard paste, **two paths**: (a) desktop — a `paste` listener decoding `clipboardData.files[0]` when it is an image, ignoring plain-text pastes, mounted only while the Scan tab is shown; (b) touch — the **Paste** button reads `navigator.clipboard.read()` and decodes the first `image/*` `ClipboardItem`. If the async Clipboard API is missing or denied, the status line says so and the file picker remains the fallback. |
 | R4 | Decode via `barcode-detector` (already in the tree) on the `File` blob, restricted to **matrix codes**: `formats: ["matrix_codes"]`, the library's input aggregate for exactly Aztec, DataMatrix, MaxiCode, PDF417, QRCode, MicroQRCode, rMQRCode (the `"M"` tier in `ponyfill.js`; linear codes are excluded). Results still come back with a concrete `format`. No new npm dependency. |
 | R5 | Validation before decode: non-image MIME/type, size cap (20 MB), zero-byte file, and an undecodable image each produce a specific message and never reach the decoder. |
-| R6 | Feedback states on the control: idle → `Decoding…` → success (reuses `Notification` + `LastScan`) or a visible error line. The control is disabled while decoding. The status element carries `role="status"` (`aria-live="polite"`) so state changes are announced, not merely visible (§3 a11y story, AC13). |
+| R6 | Feedback states on the control: idle → `Decoding…` → success (reuses `Notification` + `ScanHistory`) or a visible error line. The control is disabled while decoding. The status element carries `role="status"` (`aria-live="polite"`) so state changes are announced, not merely visible (§3 a11y story, AC13). |
 | R7 | Result routing: decoded value goes through one shared `applyDetectedValue(value, source, count?)` in `App`, so camera and image scans write state identically. |
 | R8 | Multiple codes in one image: the first result with a non-empty `rawValue` wins; if `count > 1` the notification appends the count. |
 | R9 | History: an image scan is stored like a camera scan; `ScanHistory` gains a `from image` affordance only if it is a one-line addition to the existing item — otherwise deferred (§4.2). |
@@ -88,7 +88,7 @@ scan does. No new dependency, no second result model, no change to the Create ta
 
 | ID | Given / When / Then |
 |----|--------------------|
-| AC1 | Given a valid QR PNG, when I choose it via the button, then within one user-perceptible beat `LastScan` shows its `rawValue`, `notify` fires, and `addScan` recorded it exactly once. |
+| AC1 | Given a valid QR PNG, when I choose it via the button, then within one user-perceptible beat the newest `ScanHistory` row shows its `rawValue`, `notify` fires, and `addScan` recorded it exactly once. |
 | AC2 | Given a screenshot in the clipboard, when I press ⌘V with focus on `<body>` on the Scan tab, then the image decodes and behaves as AC1. |
 | AC3 | Given an image with no code, when decoded, then the status line reads "No code found in this image", the camera state (`paused`) is unchanged, and nothing is written to history. |
 | AC4 | Given focus is inside the Create textarea, when I paste text, then no decode is attempted and the text inserts normally. |
@@ -158,7 +158,7 @@ and do not deep-import `dist/es/core.js` — declare the minimal local type in o
 | `wip.md` | create during implementation; delete in the feature commit (repo §3). |
 
 No changes to: `useHistory`, `useClipboard`, `useQrCode`, `ModeTabs`, `QrGenerator`,
-`LastScan`, `ScanHistory`, `validators.ts`, `vite.config.ts`, `vitest.config.ts`.
+`ScanHistory`, `validators.ts`, `vite.config.ts`, `vitest.config.ts`.
 
 ### 7.3 Interfaces
 

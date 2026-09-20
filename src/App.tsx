@@ -5,7 +5,6 @@ import {
   Header,
   Notification,
   QRScanner,
-  LastScan,
   ScanHistory,
   ClearConfirmModal,
   ModeTabs,
@@ -51,7 +50,9 @@ function readActiveTab(): "scan" | "create" {
 
 export default function App() {
   const [scannedData, setScannedData] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // No `error` state: camera failures surface through `notify` as a toast. The
+  // only panel that ever rendered a persistent error line was LastScan, which
+  // duplicated the newest history entry.
   const [paused, setPaused] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<"scan" | "create">(() =>
@@ -103,7 +104,6 @@ export default function App() {
         if (value === scannedData) return;
         setScannedData(value);
         setPaused(true);
-        setError(null);
         addScan(value);
         notify(SCAN_SAVED_MESSAGE);
         return;
@@ -113,7 +113,6 @@ export default function App() {
         return;
       }
       setScannedData(value);
-      setError(null);
       addScan(value);
       const suffix = count !== undefined && count > 1 ? ` — ${count} codes found` : "";
       notify(`Scanned ${value}${suffix}`);
@@ -177,7 +176,6 @@ export default function App() {
   const handleError = useCallback(
     (err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
-      setError(message);
       notify("Camera error: " + message);
       console.error("Scanner error:", err);
     },
@@ -190,11 +188,14 @@ export default function App() {
     notify(result.success ? COPY_SUCCESS_MESSAGE : COPY_FAILED_MESSAGE);
   }, [scannedData, copyToClipboard, notify]);
 
-  const handleOpenUrl = useCallback(() => {
-    if (isValidUrl(scannedData)) {
-      window.open(scannedData, "_blank", "noopener");
+  // Takes the value explicitly rather than reading `scannedData`: the Open URL
+  // action now lives on individual history rows, not on a single latest-scan
+  // panel.
+  const handleOpenUrl = useCallback((data: string) => {
+    if (isValidUrl(data)) {
+      window.open(data, "_blank", "noopener");
     }
-  }, [scannedData]);
+  }, []);
 
   const handleCopyHistoryItem = useCallback(
     async (data: string) => {
@@ -219,7 +220,6 @@ export default function App() {
   }, [clearHistory, notify]);
 
   const toggleScanner = useCallback(() => {
-    setError(null);
     setPaused((prev) => !prev);
   }, []);
 
@@ -241,7 +241,7 @@ export default function App() {
       },
       {
         key: "o",
-        handler: () => isValidUrl(scannedData) && handleOpenUrl(),
+        handler: () => handleOpenUrl(scannedData),
       },
       {
         key: " ",
@@ -323,14 +323,6 @@ export default function App() {
         )}
 
         <Notification message={notification} />
-        <LastScan
-          scannedData={scannedData}
-          error={error}
-          onCopy={handleCopyCurrent}
-          onOpenUrl={handleOpenUrl}
-          onClearHistory={() => setShowClearConfirm(true)}
-          isValidUrl={isValidUrl}
-        />
 
         <ScanHistory
           history={history}
@@ -338,6 +330,9 @@ export default function App() {
           onCopyHistoryItem={handleCopyHistoryItem}
           onToggleExpand={toggleExpand}
           onDeleteItem={handleDeleteItem}
+          onOpenUrl={handleOpenUrl}
+          onClearHistory={() => setShowClearConfirm(true)}
+          isValidUrl={isValidUrl}
         />
 
         <ClearConfirmModal

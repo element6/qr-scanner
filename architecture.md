@@ -90,8 +90,7 @@ main.tsx → App
   │     └── ImageScanControl                   NEW (footer row of the Scan card)
   ├── QrGenerator (only on Create tab)
   ├── Notification
-  ├── LastScan
-  ├── ScanHistory
+  ├── ScanHistory                              latest decode + actions, clear history
   └── ClearConfirmModal
 ```
 
@@ -109,7 +108,10 @@ main.tsx → App
 `BarcodeDetector`, spec §7.1) is the sole new dependency. Its wasm binary is
 **not** fetched from a CDN at runtime any more: it is self-hosted for offline use
 — see "PWA / offline" below. The Scan tab's copy budget is exactly two button
-labels + the status line; `LastScan` and `Notification` unchanged. No
+labels + the status line; `Notification` unchanged. The former `LastScan` panel
+was removed because `addToHistory` already prepends the newest decode to
+`ScanHistory`, so the two showed the same value; its Open URL action moved onto
+the history rows and its Clear history button into the `ScanHistory` header. No
 camera/settings changes; history stays source-less (`from image` provenance
 deferred).
 
