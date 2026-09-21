@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
-  Header,
   Notification,
   QRScanner,
   ScanHistory,
@@ -301,8 +300,6 @@ export default function App() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
-        <Header />
-
         <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
         {activeTab === "scan" && (
