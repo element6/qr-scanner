@@ -8,6 +8,7 @@ type ScanHistoryProps = {
   onToggleExpand: (id: string) => void;
   onDeleteItem: (id: string) => void;
   onOpenUrl: (data: string) => void;
+  onSearchWeb: (data: string) => void;
   onClearHistory: () => void;
   isValidUrl: (value: string) => boolean;
 };
@@ -21,6 +22,7 @@ type HistoryRowProps = {
   onToggleExpand: (id: string) => void;
   onDeleteItem: (id: string) => void;
   onOpenUrl: (data: string) => void;
+  onSearchWeb: (data: string) => void;
 };
 
 const ICON_BUTTON = "p-1 text-slate-400 transition-colors";
@@ -41,10 +43,16 @@ function HistoryRow({
   onToggleExpand,
   onDeleteItem,
   onOpenUrl,
+  onSearchWeb,
 }: HistoryRowProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [isClipped, setIsClipped] = useState(false);
   const contentId = `${item.id}-content`;
+
+  // Non-URL values are searchable only if they carry non-whitespace content:
+  // `applyDetectedValue` rejects "" but not "   ", so a blank item is reachable
+  // and would otherwise render a dead button.
+  const canSearchWeb = !isUrl && item.data.trim().length > 0;
 
   const measure = useCallback(() => {
     const el = contentRef.current;
@@ -113,6 +121,19 @@ function HistoryRow({
               </svg>
             </button>
           )}
+          {canSearchWeb && (
+            <button
+              type="button"
+              onClick={() => onSearchWeb(item.data)}
+              aria-label="Search with Google"
+              title="Search with Google"
+              className={`${ICON_BUTTON} hover:text-blue-600`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onDeleteItem(item.id)}
@@ -155,6 +176,7 @@ export function ScanHistory({
   onToggleExpand,
   onDeleteItem,
   onOpenUrl,
+  onSearchWeb,
   onClearHistory,
   isValidUrl,
 }: ScanHistoryProps) {
@@ -227,6 +249,7 @@ export function ScanHistory({
               onToggleExpand={onToggleExpand}
               onDeleteItem={onDeleteItem}
               onOpenUrl={onOpenUrl}
+              onSearchWeb={onSearchWeb}
             />
           ))}
         </div>

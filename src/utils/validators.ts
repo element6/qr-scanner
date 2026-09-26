@@ -181,3 +181,38 @@ export function normalizeHistoryItems(
   }
   return result.slice(0, maxHistory);
 }
+
+/**
+ * Base URL for the "search the web" action on non-URL history values.
+ *
+ * Hardcoded on purpose: no web API exposes the device's default search engine
+ * (only extension-scoped APIs such as `browser.search` / `chrome.search` do),
+ * so a "device engine with Google fallback" would have no primary branch to
+ * fall back from.
+ */
+const GOOGLE_SEARCH_URL = "https://www.google.com/search";
+
+/**
+ * Builds a Google search URL for arbitrary scanned text.
+ *
+ * Returns `""` for a blank or whitespace-only query, so callers can treat that
+ * as "nothing to search" rather than opening an empty results page.
+ *
+ * `encodeURIComponent` is load-bearing, not cosmetic: scanned payloads are
+ * arbitrary text, so `&`, `=`, `#`, `?`, newlines and unicode must not be able
+ * to reshape or truncate the query.
+ *
+ * @example
+ * ```ts
+ * buildGoogleSearchUrl("hello world") // ".../search?q=hello%20world"
+ * buildGoogleSearchUrl("a&b=c")       // ".../search?q=a%26b%3Dc"
+ * buildGoogleSearchUrl("   ")         // ""
+ * ```
+ */
+export function buildGoogleSearchUrl(query: string): string {
+  const trimmed = typeof query === "string" ? query.trim() : "";
+  if (!trimmed) {
+    return "";
+  }
+  return `${GOOGLE_SEARCH_URL}?q=${encodeURIComponent(trimmed)}`;
+}

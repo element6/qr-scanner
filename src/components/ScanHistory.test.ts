@@ -95,6 +95,7 @@ type Props = {
   expandedItems?: Set<string>;
   onToggleExpand?: (id: string) => void;
   onOpenUrl?: (data: string) => void;
+  onSearchWeb?: (data: string) => void;
   onClearHistory?: () => void;
 };
 
@@ -108,6 +109,7 @@ async function render(props: Props) {
         onToggleExpand: props.onToggleExpand ?? (() => {}),
         onDeleteItem: () => {},
         onOpenUrl: props.onOpenUrl ?? (() => {}),
+        onSearchWeb: props.onSearchWeb ?? (() => {}),
         onClearHistory: props.onClearHistory ?? (() => {}),
         isValidUrl,
       })
@@ -235,6 +237,51 @@ describe("ScanHistory row actions", () => {
 
     expect(container.querySelectorAll('button[aria-label="Copy"]').length).toBe(2);
     expect(container.querySelectorAll('button[aria-label="Delete"]').length).toBe(2);
+  });
+
+  it("offers Search with Google only for values that are not URLs", async () => {
+    await render({ history: [SHORT, URL_ITEM] });
+
+    // One of each across two rows: the two affordances are mutually exclusive,
+    // so neither row can offer both.
+    expect(
+      container.querySelectorAll('button[aria-label="Search with Google"]').length
+    ).toBe(1);
+    expect(container.querySelectorAll('button[aria-label="Open URL"]').length).toBe(1);
+  });
+
+  it("searches the row's own non-URL value", async () => {
+    const searched: string[] = [];
+    await render({
+      history: [SHORT, URL_ITEM],
+      onSearchWeb: (data) => searched.push(data),
+    });
+
+    await click(byLabel("Search with Google"));
+
+    expect(searched).toEqual([SHORT.data]);
+  });
+
+  it("treats non-http schemes as searchable rather than openable", async () => {
+    await render({
+      history: [
+        { id: "mail", data: "mailto:a@b.com", timestamp: "2026-01-04T00:00:00.000Z" },
+      ],
+    });
+
+    expect(byLabel("Search with Google")).not.toBeNull();
+    expect(byLabel("Open URL")).toBeNull();
+  });
+
+  it("hides Search with Google for a whitespace-only value", async () => {
+    // The scan pipeline rejects "" but not "   ", so this row is reachable and
+    // must not render a button that opens an empty results page.
+    await render({
+      history: [{ id: "blank", data: "   ", timestamp: "2026-01-05T00:00:00.000Z" }],
+    });
+
+    expect(byLabel("Search with Google")).toBeNull();
+    expect(byLabel("Open URL")).toBeNull();
   });
 });
 

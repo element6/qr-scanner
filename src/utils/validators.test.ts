@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isValidUrl,
+  buildGoogleSearchUrl,
   isValidHistoryItem,
   createHistoryItem,
   addToHistory,
@@ -280,5 +281,55 @@ describe("normalizeHistoryItems", () => {
       expect(item.id.length).toBeGreaterThan(0);
     }
     expect(result[0].id).not.toBe(result[1].id);
+  });
+});
+
+describe("buildGoogleSearchUrl", () => {
+  it("should build a plain query URL", () => {
+    expect(buildGoogleSearchUrl("hello")).toBe(
+      "https://www.google.com/search?q=hello"
+    );
+  });
+
+  it("should escape characters that would reshape the query", () => {
+    // The reason encodeURIComponent is load-bearing rather than cosmetic:
+    // scanned payloads are arbitrary text, so these must not be able to add,
+    // truncate or reorder query parameters.
+    expect(buildGoogleSearchUrl("a&b=c")).toBe(
+      "https://www.google.com/search?q=a%26b%3Dc"
+    );
+    expect(buildGoogleSearchUrl("x#frag")).toBe(
+      "https://www.google.com/search?q=x%23frag"
+    );
+    expect(buildGoogleSearchUrl("q?x=1")).toBe(
+      "https://www.google.com/search?q=q%3Fx%3D1"
+    );
+    expect(buildGoogleSearchUrl("hello world")).toBe(
+      "https://www.google.com/search?q=hello%20world"
+    );
+  });
+
+  it("should escape newlines and unicode", () => {
+    expect(buildGoogleSearchUrl("line1\nline2")).toBe(
+      "https://www.google.com/search?q=line1%0Aline2"
+    );
+    expect(buildGoogleSearchUrl("日本語")).toBe(
+      "https://www.google.com/search?q=%E6%97%A5%E6%9C%AC%E8%AA%9E"
+    );
+  });
+
+  it("should trim the query before encoding", () => {
+    expect(buildGoogleSearchUrl("  hello  ")).toBe(
+      "https://www.google.com/search?q=hello"
+    );
+  });
+
+  it("should return an empty string for blank or non-string input", () => {
+    // Callers treat "" as "nothing to search", so a whitespace-only scan never
+    // opens an empty results page.
+    expect(buildGoogleSearchUrl("")).toBe("");
+    expect(buildGoogleSearchUrl("   ")).toBe("");
+    expect(buildGoogleSearchUrl("\n\t ")).toBe("");
+    expect(buildGoogleSearchUrl(undefined as unknown as string)).toBe("");
   });
 });

@@ -17,7 +17,7 @@ import {
   useKeyboardShortcuts,
   useQrCode,
 } from "./hooks";
-import { isValidUrl } from "./utils/validators";
+import { buildGoogleSearchUrl, isValidUrl } from "./utils/validators";
 import { shouldIgnoreShortcut } from "./utils/keyboardGuard";
 import { describeOutcome, readClipboardImage, scanImageFile } from "./utils/scanImage";
 
@@ -202,6 +202,16 @@ export default function App() {
     }
   }, []);
 
+  // Non-URL counterpart to `handleOpenUrl`, offered by each history row. The row
+  // only surfaces it for non-empty, non-URL values; `buildGoogleSearchUrl`
+  // returns "" for a blank query, which keeps a whitespace-only payload from
+  // opening an empty results page.
+  const handleSearchWeb = useCallback((data: string) => {
+    const url = buildGoogleSearchUrl(data);
+    if (!url) return;
+    window.open(url, "_blank", "noopener");
+  }, []);
+
   const handleCopyHistoryItem = useCallback(
     async (data: string) => {
       const result = await copyToClipboard(data);
@@ -338,6 +348,7 @@ export default function App() {
           onToggleExpand={toggleExpand}
           onDeleteItem={handleDeleteItem}
           onOpenUrl={handleOpenUrl}
+          onSearchWeb={handleSearchWeb}
           onClearHistory={() => setShowClearConfirm(true)}
           isValidUrl={isValidUrl}
         />
