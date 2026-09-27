@@ -6,3 +6,4 @@ export {
   type ShortcutHandler,
 } from "./useClipboard";
 export { useQrCode, type UseQrCode } from "./useQrCode";
+export { useCameraStatus, type UseCameraStatus } from "./useCameraStatus";

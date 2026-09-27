@@ -16,8 +16,10 @@ import {
   useNotification,
   useKeyboardShortcuts,
   useQrCode,
+  useCameraStatus,
 } from "./hooks";
 import { buildGoogleSearchUrl, isValidUrl } from "./utils/validators";
+import { derivePrimaryAction } from "./utils/cameraStatus";
 import { shouldIgnoreShortcut } from "./utils/keyboardGuard";
 import { describeOutcome, readClipboardImage, scanImageFile } from "./utils/scanImage";
 
@@ -25,6 +27,10 @@ import { describeOutcome, readClipboardImage, scanImageFile } from "./utils/scan
 const SHORTCUT_HELP_MESSAGE =
   "Shortcuts: c=copy, o=open URL, space=toggle scan";
 const SCAN_SAVED_MESSAGE = "Scan saved to history";
+const SCAN_COPIED_MESSAGE = "Scanned — copied to clipboard";
+// An undoable toast must outlive the 2200 ms default so the action is reachable.
+const UNDO_DURATION_MS = 6000;
+const HISTORY_RESTORED_MESSAGE = "History item restored";
 const COPY_SUCCESS_MESSAGE = "Copied latest scan to clipboard";
 const COPY_FAILED_MESSAGE = "Copy failed";
 const HISTORY_COPIED_MESSAGE = "Copied history item";
@@ -68,6 +74,23 @@ export default function App() {
     notify,
   } = useNotification();
   const gen = useQrCode();
+  // Camera truth comes from the stream, not from `paused`: the badge and the
+  // primary button are derived from these values (F1).
+  const {
+    status: cameraStatus,
+    issue: cameraIssue,
+    beginRequest,
+    retry,
+    handleCameraError,
+    attachFrame,
+  } = useCameraStatus();
+
+  // Camera is paused whenever the user paused it OR the Create tab is active.
+  // Composing here (not CSS-hiding) stops the stream so no Camera access denied
+  // banner leaks when the app boots on Create with permission already granted.
+  // Derived above its readers because a callback's dependency array is
+  // evaluated where the callback is declared, not where it is called.
+  const scannerPaused = paused || activeTab !== "scan";
 
   // Persist the tab choice across reloads.
   useEffect(() => {
@@ -95,6 +118,20 @@ export default function App() {
   const [imageStatus, setImageStatus] = useState<string | null>(null);
   const imageBusyRef = useRef(false);
 
+  // Snapshot of the last single-row delete, so the toast can offer Undo. Holding
+  // the value (not just the id) means restore works without reading `history`.
+  const [pendingUndo, setPendingUndo] = useState<string | null>(null);
+
+  // The snapshot is only valid while its own toast is on screen. Toast expiry
+  // clears the message, and any other notification replaces it — either way the
+  // pending value is stale, and without this it could restore the wrong item or
+  // resurrect one into a history the user just emptied.
+  useEffect(() => {
+    if (notification !== HISTORY_DELETED_MESSAGE) {
+      setPendingUndo(null);
+    }
+  }, [notification]);
+
   /** Shared tail: camera and image scans write state identically (R7, §7.4).
    *  Dedupe is source-aware — camera keeps the silent early return; image
    *  surfaces "Already the latest scan" instead (Round-1 B1, §7.3).
@@ -108,7 +145,11 @@ export default function App() {
         setScannedData(value);
         setPaused(true);
         addScan(value);
-        notify(SCAN_SAVED_MESSAGE);
+        // Confirming the copy is what the user actually wants (usable text);
+        // history is the fallback message when the clipboard is unavailable.
+        void copyToClipboard(value).then((result) => {
+          notify(result.success ? SCAN_COPIED_MESSAGE : SCAN_SAVED_MESSAGE);
+        });
         return;
       }
       if (value === scannedData) {
@@ -120,7 +161,7 @@ export default function App() {
       const suffix = count !== undefined && count > 1 ? ` — ${count} codes found` : "";
       notify(`Scanned ${value}${suffix}`);
     },
-    [scannedData, addScan, notify]
+    [scannedData, addScan, copyToClipboard, notify]
   );
 
   const handleScan = useCallback(
@@ -176,13 +217,16 @@ export default function App() {
     setImageStatus(describeOutcome(result)); // narrowed to ClipboardFailure
   }, [handleImageFile]);
 
+  /** Raw exception text never reaches the UI: it is unreadable, and for a
+   *  blocked camera the state panel already says what to do about it. The hook
+   *  decides whether the payload is a camera failure at all — the library's
+   *  `onError` also carries decode and worker errors. */
   const handleError = useCallback(
     (err: unknown) => {
-      const message = err instanceof Error ? err.message : String(err);
-      notify("Camera error: " + message, { tone: "error" });
       console.error("Scanner error:", err);
+      handleCameraError(err);
     },
-    [notify]
+    [handleCameraError]
   );
 
   const handleCopyCurrent = useCallback(async () => {
@@ -224,11 +268,27 @@ export default function App() {
 
   const handleDeleteItem = useCallback(
     (id: string) => {
+      const target = history.find((item) => item.id === id);
       removeItem(id);
+      // Single-row delete is immediate, so it carries the undo affordance the
+      // bulk clear already had behind its modal.
+      if (target) {
+        setPendingUndo(target.data);
+        notify(HISTORY_DELETED_MESSAGE, { duration: UNDO_DURATION_MS });
+        return;
+      }
+      setPendingUndo(null);
       notify(HISTORY_DELETED_MESSAGE);
     },
-    [removeItem, notify]
+    [history, removeItem, notify]
   );
+
+  const handleUndoDelete = useCallback(() => {
+    if (pendingUndo === null) return;
+    addScan(pendingUndo);
+    setPendingUndo(null);
+    notify(HISTORY_RESTORED_MESSAGE);
+  }, [pendingUndo, addScan, notify]);
 
   const handleConfirmClear = useCallback(() => {
     clearHistory();
@@ -236,9 +296,26 @@ export default function App() {
     setShowClearConfirm(false);
   }, [clearHistory, notify]);
 
+  /** One entry point for the primary button and the space shortcut: what the
+   *  camera should do next is derived from stream status, so a camera that never
+   *  opened offers a retry instead of repeating the action that just failed. */
   const toggleScanner = useCallback(() => {
-    setPaused((prev) => !prev);
-  }, []);
+    const action = derivePrimaryAction(cameraStatus, scannerPaused);
+    if (action.kind === "pause") {
+      setPaused(true);
+      return;
+    }
+    if (action.kind === "start") {
+      setPaused(false);
+      beginRequest();
+      return;
+    }
+    if (action.kind === "retry") {
+      setPaused(false);
+      retry();
+    }
+    // "none" is the un-clickable Starting… state; nothing to do.
+  }, [cameraStatus, scannerPaused, beginRequest, retry]);
 
   // Copy the generator's input text, reusing the clipboard + notification hooks.
   const handleCopyGenerator = useCallback(
@@ -302,24 +379,26 @@ export default function App() {
     []
   );
 
-  // Camera is paused whenever the user paused it OR the Create tab is active.
-  // Composing here (not CSS-hiding) stops the stream so no Camera access denied
-  // banner leaks when the app boots on Create with permission already granted.
-  const scannerPaused = paused || activeTab !== "scan";
-
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
+        <p className="text-center text-sm text-slate-500">
+          Runs on your device. Nothing is uploaded.
+        </p>
+
         {activeTab === "scan" && (
           <div id="panel-scan">
             <QRScanner
             paused={scannerPaused}
+            status={cameraStatus}
+            issue={cameraIssue}
             onScan={handleScan}
             onError={handleError}
             deviceConstraints={deviceConstraints}
-            onToggle={toggleScanner}
+            onPrimaryAction={toggleScanner}
+            attachFrame={attachFrame}
             imageBusy={imageBusy}
             imageStatus={imageStatus}
             onImageFile={handleImageFile}
@@ -339,7 +418,15 @@ export default function App() {
           </div>
         )}
 
-        <Notification message={notification} tone={notificationTone} />
+        <Notification
+          message={notification}
+          tone={notificationTone}
+          action={
+            notification === HISTORY_DELETED_MESSAGE && pendingUndo !== null
+              ? { label: "Undo", onClick: handleUndoDelete }
+              : undefined
+          }
+        />
 
         <ScanHistory
           history={history}

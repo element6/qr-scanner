@@ -22,7 +22,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 //
 // A failed registration must never break the app (private mode, unsupported
 // browser), hence the catch.
-if ("serviceWorker" in navigator) {
+//
+// Production only. In dev there is no real `sw.js` on disk: Vite's SPA fallback
+// answers that path with index.html as `text/html`, and Chrome logs "The script
+// has an unsupported MIME type ('text/html')" on every single load. Nothing is
+// lost by skipping it — there is no offline shell to precache in dev — and a
+// production build is unchanged.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   // Derived from Vite's base so the path stays correct if the deploy sub-path
   // changes; `sw.js` is emitted at the dist root by vite-plugin-pwa.
   const base = import.meta.env.BASE_URL;
