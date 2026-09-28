@@ -26,3 +26,10 @@ docs
 .dsh/*
 .consul-discussions/*
 .buncache/*
+# Agent/skill working artifacts: ~13M of reports and screenshots, regenerable
+# by re-running the skill; design.json is skill state, not project config.
+.impeccable/
+# bun.lock is the committed lockfile; a pnpm install here would create a
+# second, conflicting one.
+pnpm-lock.yaml
+.pnpm-store
