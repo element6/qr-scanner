@@ -47,12 +47,16 @@ describe("encodeQrSvg", () => {
     expect(result.byteLength).toBe(BYTE_MODE_MAX_BYTES);
   });
 
-  it("refuses a 2,953-byte mixed-case string, naming the 2,331 limit", async () => {
+  it("refuses a 2,953-byte mixed-case string in plain words", async () => {
     const text = "a".repeat(2953);
     const result = await encodeQrSvg(text);
     expect(result.ok).toBe(false);
     expect(result.error).toBe("too-long");
-    expect(result.message).toContain(String(BYTE_MODE_MAX_BYTES));
+    // The message no longer names the byte-mode limit (clarify: no mode/EC
+    // jargon); the boundary itself stays pinned above and below.
+    expect(result.message).toBe(
+      "That is too long for one QR code. Purely numeric text fits the most — about 5,600 characters."
+    );
   });
 
   it("renders a 5,000-digit numeric string (numeric mode exceeds byte capacity)", async () => {
@@ -68,7 +72,12 @@ describe("encodeQrSvg", () => {
     const over = await encodeQrSvg("1".repeat(5597));
     expect(over.ok).toBe(false);
     expect(over.error).toBe("too-long");
-    expect(over.message).toContain(String(BYTE_MODE_MAX_BYTES));
+    // Copy moved to plain words; the numeric figure the user is told now is
+    // the numeric capacity (5,600 ≈ 5,596), not the byte-mode limit. Pinned
+    // exactly here, at the boundary where the message is actually produced.
+    expect(over.message).toBe(
+      "That is too long for one QR code. Purely numeric text fits the most — about 5,600 characters."
+    );
   });
 
   it("encodes emoji and counts its UTF-8 bytes", async () => {

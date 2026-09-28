@@ -78,7 +78,11 @@ describe("QrGenerator preview retention (spec §4.1 R5)", () => {
     await render({ text: "", result: null });
 
     expect(img()).toBeNull();
-    expect(text()).toContain("Enter text to generate a QR code.");
+    // The guidance now lives in the input's placeholder; the preview panel
+    // states what the empty region is for instead of repeating it (clarify).
+    expect(container.querySelector("textarea")?.placeholder).toBe(
+      "Enter text to generate a QR code."
+    );
     expect(text()).not.toContain("Could not generate a code");
   });
 
@@ -104,7 +108,11 @@ describe("QrGenerator preview retention (spec §4.1 R5)", () => {
     await render({ text: "", result: OK });
 
     expect(img()).toBeNull();
-    expect(text()).toContain("Enter text to generate a QR code.");
+    // The guidance now lives in the input's placeholder; the preview panel
+    // states what the empty region is for instead of repeating it (clarify).
+    expect(container.querySelector("textarea")?.placeholder).toBe(
+      "Enter text to generate a QR code."
+    );
   });
 
   it("replaces the retained code after a newer success", async () => {
@@ -115,5 +123,40 @@ describe("QrGenerator preview retention (spec §4.1 R5)", () => {
     // lastGood must track the most recent success, not the first one.
     expect(img()?.getAttribute("src")).toBe(SECOND.dataUrl);
     expect(text()).toContain("Could not generate a code");
+  });
+});
+
+describe("QrGenerator size-limit disclosure (clarify: progressive disclosure)", () => {
+  const toggle = () =>
+    container.querySelector<HTMLButtonElement>(
+      'button[aria-label="About QR code size limits"]'
+    );
+  const help = () => container.querySelector("#qr-generator-size-help");
+
+  it("keeps the size help out of the reading order until ? is activated", async () => {
+    await render({ text: "hello", result: OK });
+
+    // The always-visible footnote is gone: no mode/EC vocabulary in copy that
+    // renders on every visit.
+    expect(text()).not.toContain("error correction level");
+    expect(text()).not.toContain("soft heads-up");
+
+    expect(toggle()).not.toBeNull();
+    expect(toggle()?.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle()?.getAttribute("aria-controls")).toBe(
+      "qr-generator-size-help"
+    );
+    expect(help()).toBeNull();
+
+    await act(async () => {
+      toggle()?.click();
+    });
+
+    expect(toggle()?.getAttribute("aria-expanded")).toBe("true");
+    // Pinned exactly: this is the approved wording, and it is the only place
+    // the size limit is stated to the user.
+    expect(help()?.textContent).toBe(
+      "Long text may not fit in one QR code. Purely numeric text fits the most — about 5,600 characters."
+    );
   });
 });

@@ -404,7 +404,8 @@ export default function App() {
           <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
           <p className="text-center text-sm text-slate-500">
-            Runs on your device. Nothing is uploaded.
+            Runs on your device. Works offline; history stays in this browser and
+            keeps the last 50 scans.
           </p>
         </div>
 

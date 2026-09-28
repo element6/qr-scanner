@@ -6,12 +6,12 @@
  * switches (this component unmounts when Scan is active).
  */
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { QrEncodeResult } from "../utils/qrcode";
-import {
-  BYTE_MODE_MAX_BYTES,
-  QR_ERROR_CORRECTION,
-} from "../utils/qrcode";
+import { BYTE_MODE_MAX_BYTES } from "../utils/qrcode";
+
+/** Id of the size-limit help text the `?` disclosure controls. */
+const SIZE_HELP_ID = "qr-generator-size-help";
 
 export interface QrGeneratorProps {
   text: string;
@@ -28,6 +28,7 @@ export function QrGenerator({
 }: QrGeneratorProps) {
   const byteLength = result?.byteLength ?? 0;
   const warningAboveLimit = byteLength > BYTE_MODE_MAX_BYTES;
+  const [sizeHelpOpen, setSizeHelpOpen] = useState(false);
 
   // Retain the last successful render so a failed encode keeps the previous
   // valid code on screen (spec §4.1 R5, §5, §8) while showing the warning.
@@ -54,6 +55,11 @@ export function QrGenerator({
           Could not generate a code
         </p>
         <p className="mt-1 text-xs text-slate-500">{result.message}</p>
+        {lastGood.current && (
+          <p className="mt-1 text-xs text-slate-500">
+            Showing your last valid code.
+          </p>
+        )}
       </div>
     ) : null;
 
@@ -83,10 +89,28 @@ export function QrGenerator({
           </span>{" "}
           bytes
         </span>
+        {/* The size limit is uncommon detail: it stays behind the `?` instead
+         *  of sitting in the reading order of every visit. */}
+        <button
+          type="button"
+          aria-label="About QR code size limits"
+          aria-expanded={sizeHelpOpen}
+          aria-controls={SIZE_HELP_ID}
+          onClick={() => setSizeHelpOpen((open) => !open)}
+          className="rounded border border-slate-300 px-1.5 leading-none text-slate-500 hover:border-slate-400 hover:text-slate-700"
+        >
+          ?
+        </button>
         {warningAboveLimit && (
-          <span className="text-amber-600">
+          <span className="text-amber-700">
             Above the {BYTE_MODE_MAX_BYTES.toLocaleString()}-byte soft limit
           </span>
+        )}
+        {sizeHelpOpen && (
+          <p id={SIZE_HELP_ID} className="w-full pt-1">
+            Long text may not fit in one QR code. Purely numeric text fits the
+            most — about 5,600 characters.
+          </p>
         )}
       </div>
 
@@ -103,11 +127,11 @@ export function QrGenerator({
         ) : errorCard ? (
           errorCard
         ) : text === "" ? (
-          <p className="py-6 text-center text-sm text-slate-400">
-            Enter text to generate a QR code.
+          <p className="py-6 text-center text-sm text-slate-500">
+            Your QR code will appear here.
           </p>
         ) : (
-          <p className="py-6 text-center text-xs text-slate-400">
+          <p className="py-6 text-center text-xs text-slate-500">
             Generating…
           </p>
         )}
@@ -121,11 +145,6 @@ export function QrGenerator({
       >
         Copy text
       </button>
-
-      <p className="text-xs text-slate-400">
-        Codes use error correction level {QR_ERROR_CORRECTION}. Numeric input
-        fits up to 5,596 characters; the byte readout is a soft heads-up only.
-      </p>
     </div>
   );
 }

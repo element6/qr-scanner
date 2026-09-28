@@ -51,8 +51,8 @@ export function utf8ByteLength(s: string): number {
  *
  * The encoder is the authority on capacity: `qrcode` picks the densest mode
  * itself (numeric 5,596 / alphanumeric 3,391 / byte 2,331 at EC M) and throws
- * when nothing fits. We map that throw to a user-facing "too-long" message
- * naming the byte-mode limit; anything else is "encode-failed".
+ * when nothing fits. We map that throw to a plain-language "too-long" message
+ * (no mode or EC vocabulary); anything else is "encode-failed".
  *
  * Empty input is a no-op: returns ok:true with no dataUrl, so the caller can
  * render a placeholder instead of a blank symbol.
@@ -76,9 +76,8 @@ export async function encodeQrSvg(text: string): Promise<QrEncodeResult> {
     const isTooLong =
       err instanceof Error && err.message === QR_TOO_LONG_ERROR;
     const message = isTooLong
-      ? `Text is too long for one QR code at EC level ${QR_ERROR_CORRECTION} ` +
-        `(${BYTE_MODE_MAX_BYTES} bytes in byte mode). Shorten the text, or ` +
-        `use purely numeric input (up to 5,596 characters).`
+      ? "That is too long for one QR code. Purely numeric text fits the " +
+        "most — about 5,600 characters."
       : "Could not generate a QR code for this text.";
     const error: QrErrorCode = isTooLong ? "too-long" : "encode-failed";
     return { ok: false, error, message, byteLength };

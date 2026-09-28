@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           id: BASE,
           name: "Code Scanner",
-          short_name: "Scanner",
+          short_name: "Code Scanner",
           description:
             "Scan QR codes with the camera or from an image file, and generate your own — works offline.",
           // Directory index, not `/index.html`: keeps start_url inside `scope`.
