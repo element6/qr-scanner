@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Notification,
   QRScanner,
+  ScanResult,
   ScanHistory,
   ClearConfirmModal,
   ModeTabs,
@@ -59,6 +60,10 @@ export default function App() {
   // only panel that ever rendered a persistent error line was LastScan, which
   // duplicated the newest history entry.
   const [paused, setPaused] = useState(true);
+  // Whether the user asked to scan again after a decode: the Scan panel is
+  // result-first, so a decode swaps the viewport for `ScanResult` and only this
+  // flag brings the camera back. Cleared on every new decode (below).
+  const [viewportReopened, setViewportReopened] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<"scan" | "create">(() =>
     readActiveTab()
@@ -143,6 +148,10 @@ export default function App() {
       if (source === "camera") {
         if (value === scannedData) return;
         setScannedData(value);
+        // A fresh decode always takes the panel back to result-first, so a
+        // viewport reopened earlier does not swallow the new payload. This is
+        // the shared tail, so camera and image scans behave identically.
+        setViewportReopened(false);
         setPaused(true);
         addScan(value);
         // Confirming the copy is what the user actually wants (usable text);
@@ -157,6 +166,7 @@ export default function App() {
         return;
       }
       setScannedData(value);
+      setViewportReopened(false);
       addScan(value);
       const suffix = count !== undefined && count > 1 ? ` — ${count} codes found` : "";
       notify(`Scanned ${value}${suffix}`);
@@ -381,15 +391,39 @@ export default function App() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
+      <div className="mx-auto max-w-3xl lg:max-w-5xl">
+        {/* Mobile stacks in reading order (tabs → privacy → panel → notification
+         *  → history); at lg the tabs and the on-device promise span both
+         *  columns, and the active panel and Scan History sit side by side so
+         *  their cards start on the same line. DOM order is the mobile order. */}
+        <div className="space-y-6">
+          <ModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
-        <p className="text-center text-sm text-slate-500">
-          Runs on your device. Nothing is uploaded.
-        </p>
+          <p className="text-center text-sm text-slate-500">
+            Runs on your device. Nothing is uploaded.
+          </p>
+        </div>
+
+        <div className="mt-6 space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="space-y-6">
 
         {activeTab === "scan" && (
           <div id="panel-scan">
+            {/* Result-first: a decode replaces the viewport with the payload it
+             *  found. `viewportReopened` is the user asking for the camera
+             *  back, not a camera state. */}
+            {scannedData && !viewportReopened ? (
+              <ScanResult
+                value={scannedData}
+                canOpen={isValidUrl(scannedData)}
+                onCopy={handleCopyCurrent}
+                onOpen={() => handleOpenUrl(scannedData)}
+                onScanAnother={() => {
+                  setViewportReopened(true);
+                  setPaused(false);
+                }}
+              />
+            ) : (
             <QRScanner
             paused={scannerPaused}
             status={cameraStatus}
@@ -404,6 +438,7 @@ export default function App() {
             onImageFile={handleImageFile}
             onImagePasteClick={handleImagePasteClick}
           />
+            )}
           </div>
         )}
 
@@ -427,6 +462,7 @@ export default function App() {
               : undefined
           }
         />
+        </div>
 
         <ScanHistory
           history={history}
@@ -439,6 +475,7 @@ export default function App() {
           onClearHistory={() => setShowClearConfirm(true)}
           isValidUrl={isValidUrl}
         />
+        </div>
 
         <ClearConfirmModal
           show={showClearConfirm}
