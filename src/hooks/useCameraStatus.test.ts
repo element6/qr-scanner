@@ -240,4 +240,33 @@ describe("useCameraStatus failure paths", () => {
     expect(api.status).toBe("requesting");
     expect(api.issue).toBeNull();
   });
+
+  // The denied-retry loop: first paint is correct, Retry enters `requesting`,
+  // and the library then reports the denial as *its own wrapper* — no `name`,
+  // only `kind`. While only `DOMException` names were recognised, this payload
+  // was treated as a non-camera error, so nothing could take the badge off
+  // "Starting…" and the button stayed dead. `cause` is `{}` exactly as the
+  // browser console showed it.
+  it("fails a denied retry reported as the library's wrapper", async () => {
+    await renderHook();
+    // Adversarial: a track *is* attached but not live, so the failure guard
+    // cannot pass on mere attachment either.
+    attachVideo(makeTrack("ended"));
+
+    await act(async () => {
+      api.beginRequest();
+    });
+    expect(api.status).toBe("requesting");
+
+    await act(async () => {
+      api.handleCameraError({
+        kind: "permission-denied",
+        message: "Permission denied",
+        cause: {},
+      });
+    });
+
+    expect(api.status).toBe("unavailable");
+    expect(api.issue).toBe("denied");
+  });
 });

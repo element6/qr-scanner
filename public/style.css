@@ -16,15 +16,53 @@
   }
 }
 
-@layer base {
+/* The focus indicator lives in the last layer the stylesheet declares
+ * (`@layer theme, base, components, utilities`), because the `.transition`
+ * utility it has to outrank is *itself* in `utilities`. A rule in `base` is
+ * beaten by every utility regardless of specificity, which is exactly how the
+ * ring went back to fading: Tailwind's `.transition` utility lists
+ * `outline-color` in its `transition-property`, so the ring animated up from
+ * 2.514:1 (three sampled frames under the 3:1 non-text floor) to its settled
+ * 5.127:1. In `utilities` the `:focus-visible` rule below has both the later
+ * layer and a higher specificity than `.transition`, so no `!important` is
+ * needed anywhere here.
+ *
+ * The cost of sitting in `utilities` is that it is now a sibling of the
+ * opt-outs rather than their ancestor: a component carrying
+ * `focus:outline-none` must outrank this rule on specificity or order rather
+ * than on layer. Both existing opt-outs (the history filter input and the
+ * generator textarea) are `focus:outline-none` + `focus:ring-*`, whose
+ * two-class specificity beats this rule outright, so they still carry their
+ * own indicator. */
+@layer utilities {
   /* One system focus rule for every control. The default UA ring is a 1px white
    * outline, which is invisible on this page. Sealed Green at 2px/2px offset
-   * measures 5.36:1 against the white and slate-50 surfaces. It lives in the
-   * base layer on purpose: a utility that opts a field out (`focus:outline-none`)
-   * still wins, so a component can carry its own indicator. */
+   * measures 5.36:1 against the white and slate-50 surfaces. */
   :focus-visible {
     outline: 2px solid #007a55; /* Sealed Green, emerald-700 */
     outline-offset: 2px;
+  }
+
+  /* The ring must not fade in. Tailwind v4's `transition` utility lists
+   * `outline-color` (`.transition{transition-property:color,background-color,
+   * border-color,outline-color,…}` in the built CSS), and the ring on a
+   * `slate-50` row action is only 2.882:1 for the first ~80 ms of its 150 ms
+   * fade — under the 3:1 non-text floor — before settling at 4.896:1.
+   *
+   * Dropping `outline-color` from the *transition list* fixes that without
+   * touching anything else: `transition-property` is not itself animatable and
+   * this rule matches only while the element is focused, so hover/press colour,
+   * shadow and transform feedback keep their existing timing exactly. The
+   * order of the remaining properties is irrelevant to which ones animate, so
+   * this list cannot drift out of sync with the utility beyond a property being
+   * added there — which would only ever re-introduce a fade, never break a
+   * transition. It sits in the same `@layer utilities` as the `.transition`
+   * utility it corrects, and wins there on specificity (`:focus-visible`
+   * outranks the bare `.transition` class), so no `!important` is required. */
+  :focus-visible {
+    transition-property: color, background-color, border-color,
+      text-decoration-color, fill, stroke, opacity, box-shadow, transform,
+      translate, scale, rotate, filter, backdrop-filter;
   }
 
   /* A filled accent control paints its own dark surface, and an offset ring would

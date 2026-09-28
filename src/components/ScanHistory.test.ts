@@ -215,6 +215,47 @@ describe("ScanHistory expand affordance", () => {
 });
 
 describe("ScanHistory row actions", () => {
+  // The reported defect: every action name was built from a 24-character
+  // prefix of the payload, so two rows sharing a prefix announced as the same
+  // control ("Copy https://example.com/shar" twice) and a screen-reader user
+  // could not tell them apart.
+  it("gives rows with a shared payload prefix distinct action names", async () => {
+    const collideA: HistoryItem = {
+      id: "collide-a",
+      data: "https://example.com/share/alpha",
+      timestamp: "2026-01-04T00:00:00.000Z",
+    };
+    const collideB: HistoryItem = {
+      id: "collide-b",
+      data: "https://example.com/share/beta",
+      timestamp: "2026-01-05T00:00:00.000Z",
+    };
+    await render({ history: [collideA, collideB] });
+
+    // The prefix the defect truncated at, made explicit: both rows are
+    // identical for well over 24 characters.
+    expect(collideA.data.slice(0, 24)).toBe(collideB.data.slice(0, 24));
+
+    const names = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Copy"]')
+    ).map((b) => b.getAttribute("aria-label"));
+
+    expect(names.length).toBe(2);
+    expect(new Set(names).size).toBe(2);
+    expect(names[0]).not.toBe(names[1]);
+    // Still content-bearing, still verb-first, and now ordinal-tagged.
+    expect(names[0]).toMatch(/^Copy https:\/\/example\.com\/share\/(alpha|beta) \(row [12]\)$/);
+    expect(names[1]).toMatch(/^Copy https:\/\/example\.com\/share\/(alpha|beta) \(row [12]\)$/);
+  });
+
+  it("keeps the ordinal visible after clipping a long payload", async () => {
+    await render({ history: [LONG] });
+
+    const copy = byLabel("Copy");
+    expect(copy?.getAttribute("aria-label")).not.toBeNull();
+    expect(copy?.getAttribute("aria-label")).toMatch(/ \(row 1\)$/);
+  });
+
   it("offers Open URL only for values that are valid http(s) URLs", async () => {
     await render({ history: [SHORT, URL_ITEM] });
 

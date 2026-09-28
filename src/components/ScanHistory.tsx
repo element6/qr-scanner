@@ -18,6 +18,8 @@ type HistoryRowProps = {
   expanded: boolean;
   isUrl: boolean;
   layoutEpoch: number;
+  /** 1-based position in the visible list; part of every action's name. */
+  ordinal: number;
   onCopyHistoryItem: (data: string) => void;
   onToggleExpand: (id: string) => void;
   onDeleteItem: (id: string) => void;
@@ -31,12 +33,27 @@ type HistoryRowProps = {
 const ICON_BUTTON = "-m-2.5 p-3.5 text-slate-400 transition-colors";
 
 /** Row actions repeat once per row, so a bare "Copy" would be five identical
- *  names in a screen reader's rotor; the value itself is what tells them apart.
- *  Collapsed to one line and clipped so a 400-character payload cannot become
- *  the whole label. A value with no content at all falls back to the verb. */
-function actionName(verb: string, data: string): string {
+ *  names in a screen reader's rotor. Two things together tell them apart:
+ *
+ *  1. the row's ordinal, which is unique by construction — two payloads that
+ *     share their opening characters ("https://example.com/shar…") still get
+ *     distinct names; and
+ *  2. the value itself, which keeps the name content-bearing rather than a bare
+ *     "row 3" — a *400-character* payload is still clipped so it cannot become
+ *     the whole label, but the bound is wide enough that a real payload is
+ *     announced whole. The ordinal is suffixed, not prefixed, so the verb
+ *     stays the first word a screen-reader user hears.
+ *
+ *  A value with no content at all falls back to the ordinal alone.
+ */
+const ACTION_NAME_VALUE_MAX = 60;
+
+function actionName(verb: string, data: string, ordinal: number): string {
   const value = data.replace(/\s+/g, " ").trim();
-  return value ? `${verb} ${value.slice(0, 24)}` : verb;
+  const row = `row ${ordinal}`;
+  return value
+    ? `${verb} ${value.slice(0, ACTION_NAME_VALUE_MAX)} (${row})`
+    : `${verb} (${row})`;
 }
 
 /**
@@ -51,6 +68,7 @@ function HistoryRow({
   expanded,
   isUrl,
   layoutEpoch,
+  ordinal,
   onCopyHistoryItem,
   onToggleExpand,
   onDeleteItem,
@@ -111,7 +129,7 @@ function HistoryRow({
               onClick={() => onToggleExpand(item.id)}
               aria-expanded={expanded}
               aria-controls={contentId}
-              aria-label={actionName(expanded ? "Collapse" : "Expand", item.data)}
+              aria-label={actionName(expanded ? "Collapse" : "Expand", item.data, ordinal)}
               title={expanded ? "Collapse" : "Expand"}
               className={`${ICON_BUTTON} hover:text-indigo-500`}
             >
@@ -124,7 +142,7 @@ function HistoryRow({
             <button
               type="button"
               onClick={() => onOpenUrl(item.data)}
-              aria-label={actionName("Open", item.data)}
+              aria-label={actionName("Open", item.data, ordinal)}
               title="Open URL"
               className={`${ICON_BUTTON} hover:text-emerald-600`}
             >
@@ -137,7 +155,7 @@ function HistoryRow({
             <button
               type="button"
               onClick={() => onSearchWeb(item.data)}
-              aria-label={actionName("Search with Google for", item.data)}
+              aria-label={actionName("Search with Google for", item.data, ordinal)}
               title="Search with Google"
               className={`${ICON_BUTTON} hover:text-blue-600`}
             >
@@ -149,7 +167,7 @@ function HistoryRow({
           <button
             type="button"
             onClick={() => onDeleteItem(item.id)}
-            aria-label={actionName("Delete", item.data)}
+            aria-label={actionName("Delete", item.data, ordinal)}
             title="Delete"
             className={`${ICON_BUTTON} hover:text-red-500`}
           >
@@ -160,7 +178,7 @@ function HistoryRow({
           <button
             type="button"
             onClick={() => onCopyHistoryItem(item.data)}
-            aria-label={actionName("Copy", item.data)}
+            aria-label={actionName("Copy", item.data, ordinal)}
             title="Copy"
             className={`${ICON_BUTTON} hover:text-indigo-500`}
           >
@@ -250,13 +268,14 @@ export function ScanHistory({
         </p>
       ) : (
         <div className="space-y-2">
-          {filteredHistory.map((item) => (
+          {filteredHistory.map((item, index) => (
             <HistoryRow
               key={item.id}
               item={item}
               expanded={expandedItems.has(item.id)}
               isUrl={isValidUrl(item.data)}
               layoutEpoch={layoutEpoch}
+              ordinal={index + 1}
               onCopyHistoryItem={onCopyHistoryItem}
               onToggleExpand={onToggleExpand}
               onDeleteItem={onDeleteItem}

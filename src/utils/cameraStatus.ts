@@ -19,11 +19,13 @@ export type CameraIssue = "denied" | "not-found" | "insecure" | "unknown" | null
 export type BadgeTone = "live" | "paused" | "pending" | "unavailable";
 
 /**
- * Error names that mean the *camera* failed to start.
+ * Error *names* that mean the camera failed to start.
  *
- * `Scanner`'s `onError` is a firehose: it also carries decode, worker and frame
- * errors. Only these names may move camera state. Exported so the whitelist
- * itself is testable rather than implied by a function body.
+ * This is the raw-`DOMException` half of the whitelist; `CAMERA_FAILURE_KINDS`
+ * below is the wrapper half. `Scanner`'s `onError` is a firehose that also
+ * carries decode, worker and frame errors, so only the two whitelists together
+ * may move camera state. Exported so the whitelist itself is testable rather
+ * than implied by a function body.
  */
 export const CAMERA_FAILURE_NAMES = [
   "NotAllowedError",
@@ -34,6 +36,63 @@ export const CAMERA_FAILURE_NAMES = [
 ] as const;
 
 export type CameraFailureName = (typeof CAMERA_FAILURE_NAMES)[number];
+
+/**
+ * `kind` values of the wrapper `Scanner`'s `onError` actually hands us.
+ *
+ * The library does not re-throw the `DOMException`: `createScannerError` wraps
+ * every cause in `{ kind, message, cause }` (its `IScannerError`, declared in
+ * `node_modules/@yudiel/react-qr-scanner/dist/types/IScannerError.d.ts` as
+ * `ScannerErrorKind`). A wrapper has no `name`, so the `DOMException`-name path
+ * alone classified a denied retry as *not* a camera failure and left the badge
+ * on "Starting…" with no retry forever.
+ *
+ * The vocabulary is restated here rather than imported so this module stays
+ * pure and free of the scanner runtime; the tuple is exhaustive over
+ * `ScannerErrorKind`, and `cameraStatus.test.ts` pins it against the installed
+ * declaration file.
+ *
+ * Only the kinds `createScannerError`'s `NAME_TO_KIND` table can produce from a
+ * camera-start method are listed. `type-error`, `aborted`, `unsupported` and
+ * `unknown` are deliberately absent: the same wrapper is also the firehose for
+ * decode, worker, zoom and frame failures (`onError(createScannerError(err))`
+ * inside the detection loop), and those may not move camera state.
+ */
+export const CAMERA_FAILURE_KINDS = [
+  "permission-denied",
+  "security",
+  "no-camera",
+  "overconstrained",
+  "in-use",
+  "insecure-context",
+] as const;
+
+export type CameraFailureKind = (typeof CAMERA_FAILURE_KINDS)[number];
+
+/**
+ * Either shape of a camera-start failure, once recognised: a wrapper `kind` or
+ * a `DOMException` `name`. The two vocabularies are disjoint.
+ */
+export type CameraFailureSignal = CameraFailureKind | CameraFailureName;
+
+/**
+ * Wrapper `kind` → issue, for every kind that may move camera state.
+ *
+ * `in-use` (the camera is held by another application or tab) is a camera
+ * failure but has no dedicated issue in the taxonomy, so it takes the `unknown`
+ * headline; a retry after the other holder exits is the fix either way.
+ */
+export const CAMERA_FAILURE_KIND_ISSUE: Record<
+  CameraFailureKind,
+  Exclude<CameraIssue, null>
+> = {
+  "permission-denied": "denied",
+  security: "denied",
+  "no-camera": "not-found",
+  overconstrained: "not-found",
+  "in-use": "unknown",
+  "insecure-context": "insecure",
+};
 
 /**
  * The status pill. Tone `live` (emerald) is reserved for a feed that is
@@ -120,6 +179,10 @@ export function describeCameraIssue(
 export function classifyCameraError(
   err: unknown
 ): Exclude<CameraIssue, null> {
+  const kind = readScannerErrorKind(err);
+  if (kind !== null && isCameraFailureKind(kind)) {
+    return CAMERA_FAILURE_KIND_ISSUE[kind];
+  }
   const name = readErrorName(err);
   if (name === "NotAllowedError" || name === "SecurityError") {
     return "denied";
@@ -137,15 +200,14 @@ export function classifyCameraError(
 /**
  * The firehose guard: is this payload actually about the camera?
  *
- * True only for a `DOMException`, or any object whose `name` is in the
- * whitelist. A plain `Error` — a decode, worker or frame failure from the
- * scanner loop — is false, and callers must not let it move camera state.
+ * True for either shape `Scanner` can hand `onError`: a `DOMException` (or any
+ * object) whose `name` is whitelisted, or its own `{ kind, message, cause }`
+ * wrapper whose `kind` is. A plain `Error` — a decode, worker or frame failure
+ * from the scanner loop — is false, and callers must not let it move camera
+ * state.
  */
 export function isCameraFailure(err: unknown): boolean {
-  const name = readErrorName(err);
-  return (
-    name !== null && (CAMERA_FAILURE_NAMES as readonly string[]).includes(name)
-  );
+  return readCameraFailureKind(err) !== null;
 }
 
 /** True iff the track is attached to a running source. */
@@ -164,4 +226,45 @@ function readErrorName(err: unknown): string | null {
   if (typeof err !== "object" || err === null) return null;
   const name = (err as { name?: unknown }).name;
   return typeof name === "string" ? name : null;
+}
+
+/**
+ * The single question both `isCameraFailure` and `classifyCameraError` ask, so
+ * the guard and the classifier can never disagree about what a payload is.
+ *
+ * Accepts either shape the library can hand `onError`:
+ *
+ * 1. the raw `DOMException` / `Error` path, matched on `name`; and
+ * 2. the `{ kind, message, cause }` wrapper, matched on `kind`.
+ *
+ * `kind` is tested before `name` because the wrapper — unlike a `DOMException`
+ * — has no `name`, and a payload carrying both would be a wrapper.
+ */
+function readCameraFailureKind(err: unknown): CameraFailureSignal | null {
+  const kind = readScannerErrorKind(err);
+  if (kind !== null) {
+    return isCameraFailureKind(kind) ? kind : null;
+  }
+  const name = readErrorName(err);
+  if (name !== null && (CAMERA_FAILURE_NAMES as readonly string[]).includes(name)) {
+    return name as CameraFailureName;
+  }
+  return null;
+}
+
+/** Narrows a wrapper `kind` to the kinds that may move camera state. */
+function isCameraFailureKind(kind: string): kind is CameraFailureKind {
+  return (CAMERA_FAILURE_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * The wrapper's `kind`, or null when the payload is not a scanner wrapper.
+ *
+ * A `DOMException` has no `kind`, so this returns null for the raw shape and
+ * the name path stays in charge of it.
+ */
+function readScannerErrorKind(err: unknown): string | null {
+  if (typeof err !== "object" || err === null) return null;
+  const kind = (err as { kind?: unknown }).kind;
+  return typeof kind === "string" ? kind : null;
 }

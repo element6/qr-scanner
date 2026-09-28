@@ -408,7 +408,20 @@ export default function App() {
        *  top-level heading: the outline starts at h1 and the card titles sit
        *  below it as h2. */}
       <h1 className="sr-only">Code Scanner</h1>
-      <div className="mx-auto max-w-3xl lg:max-w-5xl">
+      {/* While the confirm dialog is open every control behind it is inert:
+       *  removed from the tab order, unclickable and hidden from assistive
+       *  technology. React 19 writes the `inert` attribute natively.
+       *
+       *  The dialog is deliberately NOT inside this element. `inert` applies to
+       *  the whole subtree, so a dialog rendered within it would be inert too:
+       *  it could not be focused at all, and focus never left the page behind.
+       *  The region marked inert is therefore only the background content, and
+       *  the dialog is that region's sibling — outside the inert subtree, still
+       *  modal by virtue of its own fixed, full-viewport backdrop. */}
+      <div
+        className="mx-auto max-w-3xl lg:max-w-5xl"
+        inert={showClearConfirm}
+      >
         {/* Mobile stacks in reading order (tabs → privacy → panel → notification
          *  → history); at lg the tabs and the on-device promise span both
          *  columns, and the active panel and Scan History sit side by side so
@@ -496,13 +509,14 @@ export default function App() {
         />
         </div>
 
-        <ClearConfirmModal
-          show={showClearConfirm}
-          historyCount={history.length}
-          onCancel={() => setShowClearConfirm(false)}
-          onConfirm={handleConfirmClear}
-        />
       </div>
+
+      <ClearConfirmModal
+        show={showClearConfirm}
+        historyCount={history.length}
+        onCancel={() => setShowClearConfirm(false)}
+        onConfirm={handleConfirmClear}
+      />
     </main>
   );
 }
