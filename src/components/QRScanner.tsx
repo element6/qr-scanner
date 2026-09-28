@@ -184,7 +184,7 @@ export function QRScanner({
             disabled={action.kind === "none"}
             className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
               action.kind === "pause"
-                ? "bg-red-500 hover:bg-red-600"
+                ? "bg-red-600 hover:bg-red-700"
                 : "bg-emerald-700 hover:bg-emerald-800"
             }`}
           >

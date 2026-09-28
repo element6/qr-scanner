@@ -225,7 +225,7 @@ export function ScanHistory({
           <button
             type="button"
             onClick={onClearHistory}
-            className="min-h-11 rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+            className="min-h-11 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-700"
           >
             Clear history
           </button>
