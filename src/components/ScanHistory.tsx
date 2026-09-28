@@ -25,7 +25,19 @@ type HistoryRowProps = {
   onSearchWeb: (data: string) => void;
 };
 
-const ICON_BUTTON = "p-1 text-slate-400 transition-colors";
+/** Icon-only row actions: `p-3.5` gives the 16px icon a 44×44 hit box, and
+ *  `-m-2.5` pulls the box back to the 24px it visually occupied, so the icon
+ *  size and the row's rhythm are unchanged. */
+const ICON_BUTTON = "-m-2.5 p-3.5 text-slate-400 transition-colors";
+
+/** Row actions repeat once per row, so a bare "Copy" would be five identical
+ *  names in a screen reader's rotor; the value itself is what tells them apart.
+ *  Collapsed to one line and clipped so a 400-character payload cannot become
+ *  the whole label. A value with no content at all falls back to the verb. */
+function actionName(verb: string, data: string): string {
+  const value = data.replace(/\s+/g, " ").trim();
+  return value ? `${verb} ${value.slice(0, 24)}` : verb;
+}
 
 /**
  * A single history row.
@@ -99,7 +111,7 @@ function HistoryRow({
               onClick={() => onToggleExpand(item.id)}
               aria-expanded={expanded}
               aria-controls={contentId}
-              aria-label={expanded ? "Collapse" : "Expand"}
+              aria-label={actionName(expanded ? "Collapse" : "Expand", item.data)}
               title={expanded ? "Collapse" : "Expand"}
               className={`${ICON_BUTTON} hover:text-indigo-500`}
             >
@@ -112,7 +124,7 @@ function HistoryRow({
             <button
               type="button"
               onClick={() => onOpenUrl(item.data)}
-              aria-label="Open URL"
+              aria-label={actionName("Open", item.data)}
               title="Open URL"
               className={`${ICON_BUTTON} hover:text-emerald-600`}
             >
@@ -125,7 +137,7 @@ function HistoryRow({
             <button
               type="button"
               onClick={() => onSearchWeb(item.data)}
-              aria-label="Search with Google"
+              aria-label={actionName("Search with Google for", item.data)}
               title="Search with Google"
               className={`${ICON_BUTTON} hover:text-blue-600`}
             >
@@ -137,7 +149,7 @@ function HistoryRow({
           <button
             type="button"
             onClick={() => onDeleteItem(item.id)}
-            aria-label="Delete"
+            aria-label={actionName("Delete", item.data)}
             title="Delete"
             className={`${ICON_BUTTON} hover:text-red-500`}
           >
@@ -148,7 +160,7 @@ function HistoryRow({
           <button
             type="button"
             onClick={() => onCopyHistoryItem(item.data)}
-            aria-label="Copy"
+            aria-label={actionName("Copy", item.data)}
             title="Copy"
             className={`${ICON_BUTTON} hover:text-indigo-500`}
           >
@@ -213,7 +225,7 @@ export function ScanHistory({
           <button
             type="button"
             onClick={onClearHistory}
-            className="rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+            className="min-h-11 rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-600"
           >
             Clear history
           </button>
@@ -227,7 +239,7 @@ export function ScanHistory({
             placeholder="Search history..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="min-h-11 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
       )}

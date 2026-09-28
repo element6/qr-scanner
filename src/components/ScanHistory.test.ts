@@ -117,8 +117,10 @@ async function render(props: Props) {
   });
 }
 
-const byLabel = (label: string) =>
-  container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+// Row action names are content-bearing (`Copy <value>`), so the verb is matched
+// as a prefix; the verbs are distinct, so a prefix identifies one affordance.
+const byLabel = (verb: string) =>
+  container.querySelector<HTMLButtonElement>(`button[aria-label^="${verb}"]`);
 
 const byText = (label: string) =>
   Array.from(container.querySelectorAll("button")).find(
@@ -180,7 +182,7 @@ describe("ScanHistory expand affordance", () => {
     // rendered alone to confirm the gate is per-row, not per-list.
     clipped = false;
     await render({ history: [SHORT, LONG] });
-    expect(container.querySelectorAll('button[aria-label="Expand"]').length).toBe(0);
+    expect(container.querySelectorAll('button[aria-label^="Expand"]').length).toBe(0);
   });
 
   it("keeps a Collapse control when a row mounts already expanded", async () => {
@@ -216,7 +218,7 @@ describe("ScanHistory row actions", () => {
   it("offers Open URL only for values that are valid http(s) URLs", async () => {
     await render({ history: [SHORT, URL_ITEM] });
 
-    const openButtons = container.querySelectorAll('button[aria-label="Open URL"]');
+    const openButtons = container.querySelectorAll('button[aria-label^="Open"]');
     expect(openButtons.length).toBe(1);
   });
 
@@ -227,7 +229,7 @@ describe("ScanHistory row actions", () => {
       onOpenUrl: (data) => opened.push(data),
     });
 
-    await click(byLabel("Open URL"));
+    await click(byLabel("Open"));
 
     expect(opened).toEqual([URL_ITEM.data]);
   });
@@ -235,8 +237,8 @@ describe("ScanHistory row actions", () => {
   it("always offers Copy and Delete per row", async () => {
     await render({ history: [SHORT, URL_ITEM] });
 
-    expect(container.querySelectorAll('button[aria-label="Copy"]').length).toBe(2);
-    expect(container.querySelectorAll('button[aria-label="Delete"]').length).toBe(2);
+    expect(container.querySelectorAll('button[aria-label^="Copy"]').length).toBe(2);
+    expect(container.querySelectorAll('button[aria-label^="Delete"]').length).toBe(2);
   });
 
   it("offers Search with Google only for values that are not URLs", async () => {
@@ -245,9 +247,9 @@ describe("ScanHistory row actions", () => {
     // One of each across two rows: the two affordances are mutually exclusive,
     // so neither row can offer both.
     expect(
-      container.querySelectorAll('button[aria-label="Search with Google"]').length
+      container.querySelectorAll('button[aria-label^="Search with Google"]').length
     ).toBe(1);
-    expect(container.querySelectorAll('button[aria-label="Open URL"]').length).toBe(1);
+    expect(container.querySelectorAll('button[aria-label^="Open"]').length).toBe(1);
   });
 
   it("searches the row's own non-URL value", async () => {
@@ -257,7 +259,7 @@ describe("ScanHistory row actions", () => {
       onSearchWeb: (data) => searched.push(data),
     });
 
-    await click(byLabel("Search with Google"));
+    await click(byLabel("Search with Google for"));
 
     expect(searched).toEqual([SHORT.data]);
   });
@@ -269,8 +271,8 @@ describe("ScanHistory row actions", () => {
       ],
     });
 
-    expect(byLabel("Search with Google")).not.toBeNull();
-    expect(byLabel("Open URL")).toBeNull();
+    expect(byLabel("Search with Google for")).not.toBeNull();
+    expect(byLabel("Open")).toBeNull();
   });
 
   it("hides Search with Google for a whitespace-only value", async () => {
@@ -280,8 +282,8 @@ describe("ScanHistory row actions", () => {
       history: [{ id: "blank", data: "   ", timestamp: "2026-01-05T00:00:00.000Z" }],
     });
 
-    expect(byLabel("Search with Google")).toBeNull();
-    expect(byLabel("Open URL")).toBeNull();
+    expect(byLabel("Search with Google for")).toBeNull();
+    expect(byLabel("Open")).toBeNull();
   });
 });
 

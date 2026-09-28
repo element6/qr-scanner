@@ -15,3 +15,35 @@
     }
   }
 }
+
+@layer base {
+  /* One system focus rule for every control. The default UA ring is a 1px white
+   * outline, which is invisible on this page. Sealed Green at 2px/2px offset
+   * measures 5.36:1 against the white and slate-50 surfaces. It lives in the
+   * base layer on purpose: a utility that opts a field out (`focus:outline-none`)
+   * still wins, so a component can carry its own indicator. */
+  :focus-visible {
+    outline: 2px solid #007a55; /* Sealed Green, emerald-700 */
+    outline-offset: 2px;
+  }
+
+  /* A filled accent control paints its own dark surface, and an offset ring would
+   * land on the page rather than on the control; seat a white ring inside the
+   * fill instead. White on emerald-700 measures 5.36:1. */
+  [class~="bg-emerald-700"]:focus-visible {
+    outline-color: #ffffff;
+    outline-offset: -4px;
+  }
+}
+
+/* Nothing here is load-bearing for comprehension, so a user who asks for reduced
+ * motion gets the state changes without the travel. The scanner sweep carries
+ * its own `motion-reduce:animate-none`; this neutralises the transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}

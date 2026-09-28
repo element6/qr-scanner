@@ -395,6 +395,10 @@ export default function App() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 sm:p-6">
+      {/* The design has no visible page title, but the document still needs a
+       *  top-level heading: the outline starts at h1 and the card titles sit
+       *  below it as h2. */}
+      <h1 className="sr-only">Code Scanner</h1>
       <div className="mx-auto max-w-3xl lg:max-w-5xl">
         {/* Mobile stacks in reading order (tabs → privacy → panel → notification
          *  → history); at lg the tabs and the on-device promise span both

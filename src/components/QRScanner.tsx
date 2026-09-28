@@ -114,7 +114,7 @@ export function QRScanner({
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 p-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">Camera</span>
+          <h2 className="text-sm font-semibold">Camera</h2>
           <span
             className={`rounded-full px-2 py-1 text-xs font-semibold ${BADGE_TONE_CLASS[badge.tone]}`}
           >
@@ -170,7 +170,7 @@ export function QRScanner({
             {/* Motion must never assert a camera that is not running, so the
                 sweep is bound to liveness rather than to being mounted. */}
             <div
-              className="absolute left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-[scan_2s_ease-in-out_infinite]"
+              className="absolute left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-[scan_2s_ease-in-out_infinite] motion-reduce:animate-none"
               style={{
                 animationPlayState:
                   status === "live" && !paused ? "running" : "paused",
@@ -182,10 +182,10 @@ export function QRScanner({
           <button
             onClick={action.kind === "none" ? undefined : onPrimaryAction}
             disabled={action.kind === "none"}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            className={`min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
               action.kind === "pause"
                 ? "bg-red-500 hover:bg-red-600"
-                : "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-emerald-700 hover:bg-emerald-800"
             }`}
           >
             {action.label}

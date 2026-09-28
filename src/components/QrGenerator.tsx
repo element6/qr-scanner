@@ -78,7 +78,7 @@ export function QrGenerator({
           onChange={(e) => onChange(e.target.value)}
           placeholder="Enter text to generate a QR code."
           rows={4}
-          className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600"
         />
       </div>
 
@@ -97,7 +97,7 @@ export function QrGenerator({
           aria-expanded={sizeHelpOpen}
           aria-controls={SIZE_HELP_ID}
           onClick={() => setSizeHelpOpen((open) => !open)}
-          className="rounded border border-slate-300 px-1.5 leading-none text-slate-500 hover:border-slate-400 hover:text-slate-700"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded border border-slate-300 px-1.5 leading-none text-slate-500 hover:border-slate-400 hover:text-slate-700"
         >
           ?
         </button>
@@ -141,7 +141,7 @@ export function QrGenerator({
         type="button"
         onClick={() => onCopy(text)}
         disabled={!text}
-        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        className="min-h-11 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
       >
         Copy text
       </button>

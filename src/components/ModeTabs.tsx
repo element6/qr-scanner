@@ -51,10 +51,10 @@ export function ModeTabs({ activeTab, onChange }: ModeTabsProps) {
             aria-selected={active}
             aria-controls={`panel-${tab.id}`}
             onClick={() => onChange(tab.id)}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            className={`min-h-11 flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
               active
                 ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                : "text-slate-600 hover:text-slate-700"
             }`}
           >
             {tab.label}
