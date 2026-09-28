@@ -44,9 +44,13 @@ afterEach(() => {
   container.remove();
 });
 
-async function render(message: string, tone?: NotificationTone) {
+async function render(
+  message: string,
+  tone?: NotificationTone,
+  action?: { label: string; onClick: () => void }
+) {
   await act(async () => {
-    root.render(createElement(Notification, { message, tone }));
+    root.render(createElement(Notification, { message, tone, action }));
   });
 }
 
@@ -90,5 +94,43 @@ describe("Notification live region", () => {
     expect(el.textContent).toBe("Camera error: NotAllowedError");
     expect(el.className).toContain("bg-red-50");
     expect(el.className).not.toContain("emerald");
+  });
+
+  it("renders an inline action button and fires it on click", async () => {
+    let clicks = 0;
+    await render("History item deleted", "info", {
+      label: "Undo",
+      onClick: () => {
+        clicks += 1;
+      },
+    });
+
+    const el = region()!;
+    expect(el.textContent).toBe("History item deletedUndo");
+
+    const button = el.querySelector("button")!;
+    expect(button.textContent).toBe("Undo");
+    expect(button.className).toContain("text-sm");
+    expect(button.className).toContain("font-semibold");
+
+    await act(async () => {
+      button.click();
+    });
+    expect(clicks).toBe(1);
+  });
+
+  it("omits the action button when no action is given", async () => {
+    await render("Scan saved to history");
+
+    expect(region()!.querySelector("button")).toBeNull();
+    expect(region()!.textContent).toBe("Scan saved to history");
+  });
+
+  it("keeps the empty region action-free and sr-only", async () => {
+    await render("", "info", { label: "Undo", onClick: () => {} });
+
+    const el = region()!;
+    expect(el.className).toBe("sr-only");
+    expect(el.querySelector("button")).toBeNull();
   });
 });
