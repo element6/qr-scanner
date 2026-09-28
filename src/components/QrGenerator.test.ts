@@ -13,7 +13,7 @@
 
 import { createElement, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { QrGenerator } from "./QrGenerator";
 import type { QrEncodeResult } from "../utils/qrcode";
 
@@ -65,6 +65,7 @@ async function render(props: {
         result: props.result,
         onChange: () => {},
         onCopy: () => {},
+        onNotify: () => {},
       })
     );
   });
@@ -123,6 +124,143 @@ describe("QrGenerator preview retention (spec §4.1 R5)", () => {
     // lastGood must track the most recent success, not the first one.
     expect(img()?.getAttribute("src")).toBe(SECOND.dataUrl);
     expect(text()).toContain("Could not generate a code");
+  });
+});
+
+/**
+ * The Create tab's exports. Only the boundary is asserted here: render-level
+ * rasterising needs a real canvas, so the PNG behaviour checked is the failure
+ * notification. That path is reachable honestly in jsdom (no 2D context) and
+ * the test would also catch a regression that swallowed the error.
+ */
+describe("QrGenerator exports (create tab)", () => {
+  // Accessible names come from the button text (no redundant aria-label), so
+  // the lookup matches the same string a screen reader announces.
+  const buttonByLabel = (label: string) =>
+    Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent?.trim() === label
+    );
+
+  async function renderWithNotify(
+    text: string,
+    result: QrEncodeResult | null,
+    rasterize?: (svgDataUrl: string) => Promise<Blob | null>
+  ) {
+    const notify = vi.fn();
+    await act(async () => {
+      root.render(
+        createElement(QrGenerator, {
+          text,
+          result,
+          onChange: () => {},
+          onCopy: () => {},
+          onNotify: notify,
+          rasterize,
+        })
+      );
+    });
+    return notify;
+  }
+
+  /** jsdom has no `URL.createObjectURL`, and a real download is never wanted. */
+  let createUrl: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    createUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValue("blob:qr-generator-test");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("offers both exports with accessible names once a code is rendered", async () => {
+    await renderWithNotify("hello", OK);
+
+    const saveImage = buttonByLabel("Save image");
+    const saveSvg = buttonByLabel("Save SVG");
+    expect(saveImage?.textContent).toBe("Save image");
+    expect(saveSvg?.textContent).toBe("Save SVG");
+    expect(saveImage?.disabled).toBe(false);
+    expect(saveSvg?.disabled).toBe(false);
+  });
+
+  it("disables both exports and keeps Copy text as the only action when there is nothing to export", async () => {
+    await renderWithNotify("", null);
+
+    expect(buttonByLabel("Save image")?.disabled).toBe(true);
+    expect(buttonByLabel("Save SVG")?.disabled).toBe(true);
+    // `disabled={!text}` — the incumbent copy button is disabled too, and the
+    // failure notification never fires for a dead control.
+    expect(buttonByLabel("Copy text")?.disabled).toBe(true);
+  });
+
+  it("allows saving the retained code while an error card is showing", async () => {
+    const notify = await renderWithNotify("hello", OK);
+    await act(async () => {
+      root.render(
+        createElement(QrGenerator, {
+          text: "hello",
+          result: FAILED,
+          onChange: () => {},
+          onCopy: () => {},
+          onNotify: notify,
+        })
+      );
+    });
+
+    // The retained code is what is on screen, so it stays exportable.
+    expect(buttonByLabel("Save image")?.disabled).toBe(false);
+    expect(buttonByLabel("Save SVG")?.disabled).toBe(false);
+  });
+
+  it("tells the user when the PNG could not be rasterised, without disabling SVG", async () => {
+    // The rasteriser is injected because jsdom has no canvas; a stub canvas
+    // would only assert our own stub. This is the branch that matters: null
+    // must become a message, never a silently dead button.
+    const notify = await renderWithNotify("hello", OK, async () => null);
+
+    await act(async () => {
+      buttonByLabel("Save image")?.click();
+    });
+
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("Could not save the image"),
+      "error"
+    );
+    // The message must point at the export that still works...
+    expect(notify.mock.calls[0][0]).toMatch(/Save SVG/);
+    // ...and the SVG button must still be usable afterwards.
+    expect(buttonByLabel("Save SVG")?.disabled).toBe(false);
+  });
+
+  it("downloads the SVG blob and reports nothing on success", async () => {
+    const notify = await renderWithNotify("hello", OK);
+
+    await act(async () => {
+      buttonByLabel("Save SVG")?.click();
+    });
+
+    expect(createUrl).toHaveBeenCalledTimes(1);
+    const blob = createUrl.mock.calls[0][0] as Blob;
+    expect(blob.type).toBe("image/svg+xml");
+    // A successful export is silent — the file itself is the feedback.
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("says nothing went wrong when the PNG rasterises", async () => {
+    const notify = await renderWithNotify("hello", OK, async () =>
+      new Blob(["png"], { type: "image/png" })
+    );
+
+    await act(async () => {
+      buttonByLabel("Save image")?.click();
+    });
+
+    expect(createUrl).toHaveBeenCalledTimes(1);
+    expect(notify).not.toHaveBeenCalled();
+    // The in-flight label must be gone again.
+    expect(buttonByLabel("Save image")?.textContent).toBe("Save image");
   });
 });
 

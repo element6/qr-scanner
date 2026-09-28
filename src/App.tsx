@@ -342,6 +342,15 @@ export default function App() {
     [copyToClipboard, notify]
   );
 
+  // Surface a Create-tab export failure through the same toast used for copy
+  // and camera failures — the generator owns the message text.
+  const handleGeneratorNotify = useCallback(
+    (message: string, tone: "info" | "error") => {
+      notify(message, { tone });
+    },
+    [notify]
+  );
+
   // Keyboard shortcuts using useKeyboardShortcuts hook
   const shortcuts = useMemo(
     () => [
@@ -458,6 +467,7 @@ export default function App() {
               result={gen.result}
               onChange={gen.setText}
               onCopy={handleCopyGenerator}
+              onNotify={handleGeneratorNotify}
             />
           </div>
         )}

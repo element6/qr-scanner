@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
           start_url: BASE,
           scope: BASE,
           display: "standalone",
-          theme_color: "#3498db",
+          theme_color: "#009966",
           background_color: "#ffffff",
           icons: [
             // Relative: manifest URLs resolve against the manifest's own URL,
