@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   CAMERA_FAILURE_KINDS,
   CAMERA_FAILURE_KIND_ISSUE,
@@ -228,24 +228,53 @@ describe("isCameraFailure", () => {
    * imported, so it is pinned here against the installed declaration file: a
    * library upgrade that adds, removes or renames a `ScannerErrorKind` fails
    * this test instead of silently misclassifying a camera failure.
+   *
+   * That declaration only exists from `@yudiel/react-qr-scanner@2.6.0`, the
+   * version that introduced the `{ kind, message, cause }` wrapper. 2.5.x hands
+   * `onError` a raw `DOMException`, whose names are already pinned exhaustively
+   * in the `isCameraFailure` block above. Which of the two is installed is
+   * decided by the lockfile, not by this checkout: `bun.lock` holds CI at 2.5.1
+   * while a local `node_modules` may carry 2.6.0, so the assertion describes the
+   * protocol that is actually installed instead of assuming the file is there.
    */
-  it("should cover the library's installed ScannerErrorKind vocabulary", () => {
-    const dts = readFileSync(
-      "node_modules/@yudiel/react-qr-scanner/dist/types/IScannerError.d.ts",
-      "utf8"
-    );
-    const declared = (
-      dts.match(/ScannerErrorKind\s*=\s*([^;]+);/)?.[1] ?? ""
-    ).match(/'([^']+)'/g);
-    expect(declared).not.toBeNull();
-    const allKinds = (declared ?? []).map((quoted) => quoted.slice(1, -1));
+  const scannerErrorDts =
+    "node_modules/@yudiel/react-qr-scanner/dist/types/IScannerError.d.ts";
+  const scannerPkgJson = "node_modules/@yudiel/react-qr-scanner/package.json";
 
-    // Exhaustive over the union: nothing invented, nothing missed.
-    for (const kind of CAMERA_FAILURE_KINDS) {
-      expect(allKinds).toContain(kind);
+  it.runIf(existsSync(scannerErrorDts))(
+    "should cover the installed ScannerErrorKind vocabulary",
+    () => {
+      const dts = readFileSync(scannerErrorDts, "utf8");
+      const declared = (
+        dts.match(/ScannerErrorKind\s*=\s*([^;]+);/)?.[1] ?? ""
+      ).match(/'([^']+)'/g);
+      expect(declared).not.toBeNull();
+      const allKinds = (declared ?? []).map((quoted) => quoted.slice(1, -1));
+
+      // Exhaustive over the union: nothing invented, nothing missed.
+      for (const kind of CAMERA_FAILURE_KINDS) {
+        expect(allKinds).toContain(kind);
+      }
+      expect(new Set(allKinds).size).toBeGreaterThan(
+        CAMERA_FAILURE_KINDS.length
+      );
     }
-    expect(new Set(allKinds).size).toBeGreaterThan(CAMERA_FAILURE_KINDS.length);
-  });
+  );
+
+  it.runIf(!existsSync(scannerErrorDts))(
+    "should lack a wrapper protocol only before 2.6.0",
+    () => {
+      // A missing declaration is legitimate only for a version that ships no
+      // wrapper protocol. If a later version moves the file, this fails loudly
+      // rather than silently retiring the vocabulary pin.
+      const { version } = JSON.parse(readFileSync(scannerPkgJson, "utf8")) as {
+        version: string;
+      };
+      expect(
+        version.localeCompare("2.6.0", undefined, { numeric: true })
+      ).toBeLessThan(0);
+    }
+  );
 });
 
 describe("describeCameraIssue", () => {
