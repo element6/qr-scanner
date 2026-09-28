@@ -169,7 +169,11 @@ export default function App() {
       setViewportReopened(false);
       addScan(value);
       const suffix = count !== undefined && count > 1 ? ` — ${count} codes found` : "";
-      notify(`Scanned ${value}${suffix}`);
+      // The payload itself is on screen in the result surface, so the toast only
+      // confirms the outcome. Interpolating the value here put an unbounded
+      // string in a single-line live region: a 200-char code widened the
+      // document to 1603px on a 1024px canvas.
+      notify(`Scanned${suffix}`);
     },
     [scannedData, addScan, copyToClipboard, notify]
   );
