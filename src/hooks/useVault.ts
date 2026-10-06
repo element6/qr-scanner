@@ -284,16 +284,47 @@ function prfHeader(record: VaultRecord, prfSaltB64: string): {
   return { version: record.version, vaultId: record.vaultId, prfSaltB64 };
 }
 
-function registerError(reason: "unavailable" | "not-allowed" | "no-prf" | "error"): string {
+/** Where the WebAuthn ceremony ran, so no-prf wording promises only what exists. */
+type CeremonyContext = "setup" | "import";
+
+function registerError(reason: "unavailable" | "not-allowed" | "no-prf" | "error", ctx: CeremonyContext): string {
   switch (reason) {
     case "unavailable":
       return "fingerprint unavailable on this device";
     case "not-allowed":
       return "fingerprint setup was cancelled";
     case "no-prf":
-      return "fingerprint did not provide a key";
+      // Never "your fingerprint failed": the passkey exists but produced no
+      // key. Only the import flow can offer a PIN, so only import says so —
+      // at setup there is no reachable pin-only path, and promising one would
+      // be a false promise.
+      return ctx === "import"
+        ? "this passkey can't produce a key here — use a PIN instead"
+        : "this passkey can't produce a key on this device";
     default:
       return "fingerprint setup failed";
+  }
+}
+
+/**
+ * Maps a `WebAuthnPort.get` failure reason to a user-facing string.
+ *
+ * Every reason gets its own honest message: collapsing them into one string is
+ * what made a cancelled prompt look like a hardware failure. As with
+ * `registerError`, the no-prf PIN promise holds only in the import context.
+ */
+function getVerifyError(reason: "unavailable" | "not-allowed" | "no-prf" | "error", ctx: CeremonyContext): string {
+  switch (reason) {
+    case "unavailable":
+      return "fingerprint unavailable on this device";
+    case "not-allowed":
+      return "passkey verification was cancelled";
+    case "no-prf":
+      return ctx === "import"
+        ? "this passkey can't produce a key here — use a PIN instead"
+        : "this passkey can't produce a key on this device";
+    default:
+      return "passkey verification failed";
   }
 }
 
@@ -599,7 +630,7 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
             challenge: randomBytes(CHALLENGE_BYTES),
             prfSalt: salt,
           });
-          if (!registration.ok) return { ok: false, error: registerError(registration.reason) };
+          if (!registration.ok) return { ok: false, error: registerError(registration.reason, "setup") };
           // PRF capability counts only when `get` actually returns a key: an
           // authenticator can advertise the extension and still not emit one.
           const got = await port.get({
@@ -610,7 +641,7 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
           if (!got.ok) {
             // The credential id is NOT persisted: a credential that cannot
             // produce a key must not be offered as an unlock method.
-            return { ok: false, error: "fingerprint did not provide a key" };
+            return { ok: false, error: getVerifyError(got.reason, "setup") };
           }
           prfOutput = got.prfOutput;
           newCredentialId = registration.credentialIdB64;
@@ -938,13 +969,13 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
           challenge: randomBytes(CHALLENGE_BYTES),
           prfSalt: salt,
         });
-        if (!registration.ok) return { ok: false, error: registerError(registration.reason) };
+        if (!registration.ok) return { ok: false, error: registerError(registration.reason, "import") };
         const got = await port.get({
           challenge: randomBytes(CHALLENGE_BYTES),
           prfSalt: salt,
           credentialIdB64: registration.credentialIdB64,
         });
-        if (!got.ok) return { ok: false, error: "fingerprint did not provide a key" };
+        if (!got.ok) return { ok: false, error: getVerifyError(got.reason, "import") };
         prfSaltB64 = b64(salt);
         prfOutput = got.prfOutput;
         newCredentialId = registration.credentialIdB64;

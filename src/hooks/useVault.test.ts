@@ -22,7 +22,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDLE_LOCK_MS, useVault, type UseVault } from "./useVault";
-import type { WebAuthnPort } from "../utils/webauthn";
+import type { FailureReason, WebAuthnPort } from "../utils/webauthn";
 import { makePrfSalt } from "../utils/webauthn";
 import {
   aesGcmDecrypt,
@@ -102,7 +102,6 @@ const PRF_OUTPUT = new Uint8Array(32).fill(7);
 const CREDENTIAL_ID = "credential-1";
 
 type PortResult<T> = T extends { ok: true } ? T : never;
-type FailureReason = "unavailable" | "not-allowed" | "no-prf" | "error";
 
 /** Fully controllable WebAuthn port; every call is recorded. */
 class FakePort implements WebAuthnPort {
@@ -360,8 +359,33 @@ describe("createVault", () => {
     const port = new FakePort({ getResult: { ok: false, reason: "no-prf" } });
     mount(port);
     const result = await run((v) => v.createVault({ mode: "prf" }));
-    expect(result).toEqual({ ok: false, error: "fingerprint did not provide a key" });
+    expect(result).toEqual({ ok: false, error: "this passkey can't produce a key on this device" });
     expect(localStorage.getItem(CREDENTIAL_ID_KEY)).toBeNull();
+    expect(readVaultRecord()).toBeNull();
+  });
+
+  it("reports each get() failure reason with its own setup message", async () => {
+    const expected: Array<[FailureReason, string]> = [
+      ["unavailable", "fingerprint unavailable on this device"],
+      ["not-allowed", "passkey verification was cancelled"],
+      ["no-prf", "this passkey can't produce a key on this device"],
+      ["error", "passkey verification failed"],
+    ];
+    for (const [reason, message] of expected) {
+      unmount();
+      localStorage.clear();
+      mount(new FakePort({ getResult: { ok: false, reason } }));
+      const result = await run((v) => v.createVault({ mode: "prf" }));
+      expect(result).toEqual({ ok: false, error: message });
+      expect(localStorage.getItem(CREDENTIAL_ID_KEY)).toBeNull();
+      expect(readVaultRecord()).toBeNull();
+    }
+  });
+
+  it("reports a register-time no-prf without promising a PIN at setup", async () => {
+    mount(new FakePort({ registerResult: { ok: false, reason: "no-prf" } }));
+    const result = await run((v) => v.createVault({ mode: "prf" }));
+    expect(result).toEqual({ ok: false, error: "this passkey can't produce a key on this device" });
     expect(readVaultRecord()).toBeNull();
   });
 
@@ -719,7 +743,7 @@ describe("importLocked", () => {
     const port = new FakePort({ getResult: { ok: false, reason: "no-prf" } });
     mount(port);
     const result = await run((v) => v.importLocked(built.json, "correct horse battery", { mode: "prf" }));
-    expect(result).toEqual({ ok: false, error: "fingerprint did not provide a key" });
+    expect(result).toEqual({ ok: false, error: "this passkey can't produce a key here — use a PIN instead" });
     expect(localStorage.getItem(VAULT_STORAGE_KEY)).toBe(primaryBefore);
     expect(localStorage.getItem(VAULT_PENDING_KEY)).toBeNull();
     expect(port.registerCalls).toBe(1);
@@ -727,6 +751,17 @@ describe("importLocked", () => {
     // And the old vault is still openable.
     const unlocked = await run((v) => v.unlockWithPin("123456"));
     expect(unlocked).toEqual({ ok: true });
+  });
+
+  it("reports a register-time no-prf at import with the actionable wording", async () => {
+    await seedVault({ pin: "123456", entries: [entry()] });
+    const built = await buildExportJson([entry()], "correct horse battery");
+    if (!built.ok) throw new Error("build failed");
+
+    mount(new FakePort({ registerResult: { ok: false, reason: "no-prf" } }));
+    const result = await run((v) => v.importLocked(built.json, "correct horse battery", { mode: "prf" }));
+    expect(result).toEqual({ ok: false, error: "this passkey can't produce a key here — use a PIN instead" });
+    expect(localStorage.getItem(VAULT_PENDING_KEY)).toBeNull();
   });
 
   it("rejects a bad PIN before touching storage", async () => {

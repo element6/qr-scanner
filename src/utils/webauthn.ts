@@ -11,7 +11,7 @@
  */
 
 /** Failure reasons shared by `register` and `get`. */
-type FailureReason = "unavailable" | "not-allowed" | "no-prf" | "error";
+export type FailureReason = "unavailable" | "not-allowed" | "no-prf" | "error";
 
 /**
  * WebAuthn operations the vault needs, with every dependency (navigator,
