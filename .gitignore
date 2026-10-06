@@ -33,3 +33,4 @@ docs
 # second, conflicting one.
 pnpm-lock.yaml
 .pnpm-store
+.worktrees/
