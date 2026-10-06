@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CLOCK_OFFSET_KEY,
   CREDENTIAL_ID_KEY,
@@ -60,15 +60,26 @@ afterEach(() => {
 });
 
 /**
- * jsdom 30 under Node 26 exposes no usable `window.localStorage` here (Node's own
- * global requires `--localstorage-file`), so install an in-memory Storage with
- * the same observable semantics. Skipped whenever a real implementation exists,
- * so these tests still exercise jsdom's storage wherever it is available.
+ * The tests below need one plain-object `localStorage` that BOTH the test body
+ * and `vaultStore`'s bare `localStorage` resolve to: an instance-level
+ * `vi.spyOn(localStorage, "setItem")` can only shadow the method on a plain
+ * object. Which global the environment installs is host-dependent, and the
+ * wrong one breaks spying *silently*:
+ *
+ * - Node pre-defines a `localStorage` accessor on `globalThis` (it yields
+ *   `undefined` unless `--localstorage-file` is passed). Vitest therefore skips
+ *   that key when exposing jsdom's window, so bare `localStorage` is
+ *   `undefined` and this shim is required.
+ * - Under Bun-hosted vitest (CI) no such key exists, so vitest exposes jsdom's
+ *   `Storage`. jsdom implements it as a Proxy whose `set`/`defineProperty`
+ *   traps write an assigned `setItem` into the backing store as a data entry
+ *   instead of shadowing the method, so the spy never intercepts and the real
+ *   write lands.
+ *
+ * Installing the in-memory Storage unconditionally makes the object the tests
+ * spy on the same object the module calls, in every runtime.
  */
 function installMemoryStorage(): void {
-  if (typeof localStorage !== "undefined") {
-    return;
-  }
   const data = new Map<string, string>();
   const storage = {
     get length(): number {
@@ -102,7 +113,22 @@ function installMemoryStorage(): void {
   }
 }
 
+const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
 installMemoryStorage();
+
+afterAll(() => {
+  // Best-effort: leave the environment as this file found it. Vitest tears the
+  // environment down per test file anyway, so a failure here is harmless.
+  try {
+    if (originalLocalStorage) {
+      Object.defineProperty(globalThis, "localStorage", originalLocalStorage);
+    } else {
+      delete (globalThis as unknown as { localStorage?: Storage }).localStorage;
+    }
+  } catch {
+    // A non-configurable global cannot be restored; nothing to do.
+  }
+});
 
 describe("constants", () => {
   it("exposes the documented vault storage keys and bounds", () => {
@@ -368,8 +394,9 @@ describe("writeVaultRecord", () => {
     const rawStored = JSON.stringify(stored);
     localStorage.setItem(VAULT_STORAGE_KEY, rawStored);
 
-    // Spy on the instance, not `Storage.prototype`: the shim above is a plain
-    // object, and the `Storage` global is not guaranteed to exist.
+    // Spy on the instance, not `Storage.prototype`: this file installs the
+    // memory shim as a plain object above, and the `Storage` global is not
+    // guaranteed to exist at all.
     const setItem = vi
       .spyOn(localStorage, "setItem")
       .mockImplementation(() => {
