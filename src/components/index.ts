@@ -6,3 +6,5 @@ export { ScanHistory } from "./ScanHistory";
 export { ClearConfirmModal } from "./ClearConfirmModal";
 export { ModeTabs } from "./ModeTabs";
 export { QrGenerator } from "./QrGenerator";
+export { TwoFactorPanel } from "./TwoFactorPanel";
+export { ExportDialog, ImportDialog } from "./VaultDialogs";

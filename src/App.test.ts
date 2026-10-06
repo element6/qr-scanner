@@ -76,6 +76,101 @@ describe("App wiring: dialog sits outside the inert region", () => {
   });
 });
 
+/**
+ * The otpauth scan tail is the one place a TOTP URI could leak into rendered,
+ * copied or stored state, so it is asserted at the source the same way the inert
+ * nesting is: no App render harness exists (App needs camera + WebAuthn ports),
+ * and the branch is pure wiring, which is exactly what a source read can pin.
+ */
+describe("App wiring: the otpauth scan tail never leaks the secret", () => {
+  // The TOTP branch of `applyDetectedValue`, then its accepted (`parsed.ok`)
+  // block: the region that must call no persisting, copying or announcing API.
+  const totpStart = appSource.indexOf('if (kind === "otpauth-totp")');
+  const hotpStart = appSource.indexOf('if (kind === "otpauth-hotp"');
+  const totpBranch = appSource.slice(totpStart, hotpStart);
+  const acceptedStart = totpBranch.indexOf("if (parsed.ok) {");
+  const acceptedEnd = totpBranch.indexOf(
+    "return;",
+    totpBranch.indexOf('setActiveTab("2fa")')
+  );
+  const accepted = totpBranch.slice(acceptedStart, acceptedEnd);
+
+  it("locates the TOTP branch and its accepted block", () => {
+    expect(totpStart).toBeGreaterThan(-1);
+    expect(hotpStart).toBeGreaterThan(totpStart);
+    expect(acceptedStart).toBeGreaterThan(-1);
+    expect(acceptedEnd).toBeGreaterThan(acceptedStart);
+  });
+
+  it("does not persist, copy or announce the raw URI", () => {
+    for (const forbidden of [
+      "addScan(",
+      "copyToClipboard(",
+      "setScannedData(",
+      "notify(",
+      "localStorage",
+      "scannedData",
+    ]) {
+      expect(accepted).not.toContain(forbidden);
+    }
+  });
+
+  it("routes the raw URI only into memory-only pending state, merging by URI", () => {
+    // Merge, never replace: an in-flight pending must survive a new scan.
+    expect(accepted).toContain("setPending((current) =>");
+    expect(accepted).toContain("[...current.uris, value]");
+    expect(accepted).toContain("source: current.source");
+    // The no-pending branch is the only place source is set to "scan".
+    expect(accepted).toContain('return { uris: [value], source: "scan" };');
+    // The old replace-everything form must not come back.
+    expect(accepted).not.toContain('setPending({ uris: [value], source: "scan" })');
+    expect(accepted).toContain('setActiveTab("2fa")');
+  });
+
+  it("clears the otpauth dedupe ref when pending resolves, for either result", () => {
+    const resolvedStart = appSource.indexOf(
+      "const handlePendingResolved = useCallback("
+    );
+    const resolvedEnd = appSource.indexOf(
+      "// Keyboard shortcuts using useKeyboardShortcuts hook"
+    );
+    expect(resolvedStart).toBeGreaterThan(-1);
+    expect(resolvedEnd).toBeGreaterThan(resolvedStart);
+    const resolved = appSource.slice(resolvedStart, resolvedEnd);
+    expect(resolved).toContain("lastOtpauthRef.current = null;");
+    // Unconditional: it is cleared before the saved-only early return, so a
+    // dismiss also re-arms the ref.
+    expect(resolved.indexOf("lastOtpauthRef.current = null;")).toBeLessThan(
+      resolved.indexOf('if (result !== "saved"')
+    );
+  });
+
+  it("rejects HOTP and other classes without touching scannedData", () => {
+    const rejection = appSource.slice(
+      hotpStart,
+      // Search from hotpStart: an earlier `source === "camera"` guard (the
+      // camera pause) also sits inside the TOTP block.
+      appSource.indexOf('if (source === "camera")', hotpStart)
+    );
+    expect(rejection).toContain("UNSUPPORTED_OTP_MESSAGE");
+    for (const forbidden of [
+      "addScan(",
+      "copyToClipboard(",
+      "setScannedData(",
+      "localStorage",
+    ]) {
+      expect(rejection).not.toContain(forbidden);
+    }
+  });
+
+  it("guards the c shortcut against every otpauth class", () => {
+    const keyIndex = appSource.indexOf('key: "c"');
+    expect(keyIndex).toBeGreaterThan(-1);
+    const handler = appSource.slice(keyIndex, keyIndex + 320);
+    expect(handler).toContain("isOtpauthKind(scannedKind)");
+  });
+});
+
 describe("ClearConfirmModal: focus escapes the inert background", () => {
   let container: HTMLDivElement;
   let root: Root;

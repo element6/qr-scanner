@@ -97,6 +97,9 @@ type Props = {
   onOpenUrl?: (data: string) => void;
   onSearchWeb?: (data: string) => void;
   onClearHistory?: () => void;
+  showMigrationBanner?: boolean;
+  onMoveOtpauth?: () => void;
+  onRemoveOtpauth?: () => void;
 };
 
 async function render(props: Props) {
@@ -112,6 +115,12 @@ async function render(props: Props) {
         onSearchWeb: props.onSearchWeb ?? (() => {}),
         onClearHistory: props.onClearHistory ?? (() => {}),
         isValidUrl,
+        // Omitted when unset so the component's own `true` default is exercised.
+        ...(props.showMigrationBanner === undefined
+          ? {}
+          : { showMigrationBanner: props.showMigrationBanner }),
+        onMoveOtpauth: props.onMoveOtpauth,
+        onRemoveOtpauth: props.onRemoveOtpauth,
       })
     );
   });
@@ -343,5 +352,111 @@ describe("ScanHistory clear history", () => {
     await click(byText("Clear history"));
 
     expect(cleared).toBe(1);
+  });
+});
+
+const OTPAUTH_SECRET = "JBSWY3DPEHPK3PXP";
+const OTPAUTH_URI = `otpauth://totp/Example:alice@example.com?secret=${OTPAUTH_SECRET}&issuer=Example`;
+const OTPAUTH_ITEM: HistoryItem = {
+  id: "otp",
+  data: OTPAUTH_URI,
+  timestamp: "2026-01-06T00:00:00.000Z",
+};
+
+describe("ScanHistory otpauth redaction", () => {
+  it("shows the fixed text, drops the secret from DOM and every aria-label, and hides Copy", async () => {
+    await render({ history: [OTPAUTH_ITEM] });
+
+    expect(container.textContent).toContain("Authenticator code — hidden");
+    expect(container.textContent).not.toContain(OTPAUTH_SECRET);
+    expect(container.innerHTML).not.toContain(OTPAUTH_SECRET);
+
+    const labelled = Array.from(container.querySelectorAll("[aria-label]"));
+    expect(labelled.length).toBeGreaterThan(0);
+    for (const el of labelled) {
+      const label = el.getAttribute("aria-label") ?? "";
+      expect(label).not.toContain(OTPAUTH_SECRET);
+      expect(label).not.toContain("otpauth");
+    }
+
+    // Hidden, not disabled: no affordance on this row may copy the seed.
+    expect(container.querySelectorAll('button[aria-label^="Copy"]').length).toBe(0);
+    // Delete is unrelated to the secret and stays; its `title` is static, since
+    // the aria-label must be the fixed redacted string on this row.
+    expect(container.querySelectorAll('button[title="Delete"]').length).toBe(1);
+  });
+
+  it("leaves a non-otpauth row unchanged: value visible and Copy present", async () => {
+    await render({ history: [SHORT] });
+
+    expect(container.textContent).toContain(SHORT.data);
+    expect(container.querySelectorAll('button[aria-label^="Copy"]').length).toBe(1);
+  });
+
+  it("offers no search action on an otpauth row, but still offers one elsewhere", async () => {
+    // `title` is static on both kinds of row, so it identifies the affordance
+    // even though an otpauth row's aria-label is the fixed redacted string.
+    await render({ history: [OTPAUTH_ITEM] });
+    expect(container.querySelectorAll('button[title="Search with Google"]').length).toBe(0);
+
+    await render({ history: [SHORT] });
+    expect(container.querySelectorAll('button[title="Search with Google"]').length).toBe(1);
+  });
+});
+
+describe("ScanHistory migration banner", () => {
+  const HOTP_ITEM: HistoryItem = {
+    id: "otp2",
+    data: "otpauth://hotp/Example:bob@example.com?secret=KRSXG5CTMVRXEZLU&counter=1",
+    timestamp: "2026-01-07T00:00:00.000Z",
+  };
+
+  it("is absent when only non-otpauth rows exist", async () => {
+    await render({ history: [SHORT, URL_ITEM] });
+
+    expect(byText("Move to 2FA vault")).toBeUndefined();
+    expect(container.textContent).not.toContain("authenticator code");
+  });
+
+  it("is hidden when showMigrationBanner is false", async () => {
+    await render({ history: [OTPAUTH_ITEM], showMigrationBanner: false });
+
+    expect(byText("Move to 2FA vault")).toBeUndefined();
+    expect(container.textContent).not.toContain("authenticator code");
+  });
+
+  it("counts only otpauth rows and pluralizes honestly", async () => {
+    await render({ history: [OTPAUTH_ITEM] });
+    expect(container.textContent).toContain(
+      "1 authenticator code found in scan history — move to 2FA vault or remove"
+    );
+
+    await render({ history: [OTPAUTH_ITEM, HOTP_ITEM, SHORT] });
+    expect(container.textContent).toContain(
+      "2 authenticator codes found in scan history — move to 2FA vault or remove"
+    );
+  });
+
+  it("fires the move and remove callbacks", async () => {
+    let moved = 0;
+    let removed = 0;
+    await render({
+      history: [OTPAUTH_ITEM, HOTP_ITEM],
+      onMoveOtpauth: () => (moved += 1),
+      onRemoveOtpauth: () => (removed += 1),
+    });
+
+    await click(byText("Move to 2FA vault"));
+    await click(byText("Remove from history"));
+
+    expect(moved).toBe(1);
+    expect(removed).toBe(1);
+  });
+
+  it("renders only the button whose callback was provided", async () => {
+    await render({ history: [OTPAUTH_ITEM], onMoveOtpauth: () => {} });
+
+    expect(byText("Move to 2FA vault")).toBeDefined();
+    expect(byText("Remove from history")).toBeUndefined();
   });
 });

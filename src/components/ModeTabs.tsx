@@ -1,5 +1,5 @@
 /**
- * Scan | Create segmented tab control.
+ * Scan | Create | 2FA segmented tab control.
  *
  * Accessible: role="tablist", aria-selected, arrow-key navigation between
  * tabs, and a focus ring that follows the active tab.
@@ -7,11 +7,12 @@
 
 import { useCallback } from "react";
 
-type Tab = "scan" | "create";
+type Tab = "scan" | "create" | "2fa";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "scan", label: "Scan" },
   { id: "create", label: "Create" },
+  { id: "2fa", label: "2FA" },
 ];
 
 export interface ModeTabsProps {

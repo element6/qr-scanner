@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { parseOtpauth, scanKind, type ScanKind } from "../utils/otpauth";
 
 type ScanResultProps = {
   /** The decoded value, shown as plain local text — selectable, never a link. */
@@ -8,7 +9,22 @@ type ScanResultProps = {
   onCopy: () => void;
   onOpen: () => void;
   onScanAnother: () => void;
+  /** Payload class. Optional so existing call sites compile unchanged; when
+   *  absent it is derived from `value` rather than assumed, because assuming
+   *  "text" here would render an OTP seed. */
+  kind?: ScanKind;
+  /** Non-secret identity to display for `otpauth-totp`. */
+  entry?: { issuer: string; account: string } | null;
+  /** When omitted, the TOTP branch stays informational and offers no action. */
+  onSaveToVault?: () => void;
 };
+
+/** Issuer/account only — the parser's secret field is deliberately dropped so
+ *  no seed can travel further than this function's return value. */
+function parsedIdentity(value: string): { issuer: string; account: string } | null {
+  const result = parseOtpauth(value);
+  return result.ok ? { issuer: result.entry.issuer, account: result.entry.account } : null;
+}
 
 /** Matches the secondary buttons in ImageScanControl / ScanHistory. */
 const SECONDARY_BUTTON =
@@ -40,12 +56,27 @@ export function ScanResult({
   onCopy,
   onOpen,
   onScanAnother,
+  kind,
+  entry = null,
+  onSaveToVault,
 }: ScanResultProps) {
   const contentRef = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [isClipped, setIsClipped] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const contentId = "scan-result-payload";
+
+  /**
+   * Fail closed: an absent `kind` is classified from `value` by the shared
+   * `scanKind`, never assumed to be "text". A call site that forgets the prop
+   * must not be able to render an OTP seed. Every non-otpauth value classifies
+   * as text/url, so those take the unchanged branch below either way.
+   */
+  const effectiveKind: ScanKind = kind ?? scanKind(value);
+  const isOtp =
+    effectiveKind === "otpauth-totp" ||
+    effectiveKind === "otpauth-hotp" ||
+    effectiveKind === "otpauth-other";
 
   /**
    * Measure the clamped box against the unclamped one, the same way
@@ -91,6 +122,61 @@ export function ScanResult({
   /** Explicit: "Copy" is terse, so the accessible name says what is copied. */
   function copyLabel(): string {
     return `Copy scan to clipboard: ${value}`;
+  }
+
+  /**
+   * SECURITY: an `otpauth://` value is the account's shared secret, not
+   * content. It is never rendered, never copied, never used as an aria-label
+   * or title, and never placed in an attribute — the whole branch is built
+   * from `entry` (issuer/account) and fixed strings only, so there is nothing
+   * for a screen reader, a clipboard sync or `textContent` to pick up. A
+   * missing `entry` still shows the block, just without the identity lines.
+   */
+  if (isOtp) {
+    const isTotp = effectiveKind === "otpauth-totp";
+    const identity = isTotp ? entry ?? parsedIdentity(value) : null;
+
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-800">Latest scan</h2>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          {isTotp ? (
+            <>
+              {identity?.issuer ? <p className={PAYLOAD_TEXT}>{identity.issuer}</p> : null}
+              {identity?.account ? (
+                <p className="mt-1 text-sm text-slate-600">{identity.account}</p>
+              ) : null}
+            </>
+          ) : (
+            <p className={PAYLOAD_TEXT}>Unsupported authenticator code</p>
+          )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {isTotp && onSaveToVault && (
+            <button
+              type="button"
+              onClick={onSaveToVault}
+              aria-label="Save to 2FA vault"
+              className="min-h-11 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800"
+            >
+              Save to 2FA vault
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onScanAnother}
+            aria-label="Scan another"
+            className={SECONDARY_BUTTON}
+          >
+            Scan another
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (

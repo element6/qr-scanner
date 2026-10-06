@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { HistoryItem } from "../utils/validators";
+import { scanKind } from "../utils/otpauth";
 
 type ScanHistoryProps = {
   history: HistoryItem[];
@@ -11,6 +12,11 @@ type ScanHistoryProps = {
   onSearchWeb: (data: string) => void;
   onClearHistory: () => void;
   isValidUrl: (value: string) => boolean;
+  /** Default true: the App flips it off once `qr2fa.historyMigrated` is set or
+   *  the App knows the count is zero. The component never reads that flag. */
+  showMigrationBanner?: boolean;
+  onMoveOtpauth?: () => void;
+  onRemoveOtpauth?: () => void;
 };
 
 type HistoryRowProps = {
@@ -48,6 +54,21 @@ const ICON_BUTTON = "-m-2.5 p-3.5 text-slate-400 transition-colors";
  */
 const ACTION_NAME_VALUE_MAX = 60;
 
+/** otpauth rows are secrets: the seed *is* the payload, so the visible text and
+ *  every accessible name collapse to this fixed string and the copy action is
+ *  removed outright rather than disabled — a disabled button still advertises
+ *  the secret in its label. */
+const OTPAUTH_HIDDEN_TEXT = "Authenticator code — hidden";
+
+function isOtpauth(data: string): boolean {
+  const kind = scanKind(data);
+  return (
+    kind === "otpauth-totp" ||
+    kind === "otpauth-hotp" ||
+    kind === "otpauth-other"
+  );
+}
+
 function actionName(verb: string, data: string, ordinal: number): string {
   const value = data.replace(/\s+/g, " ").trim();
   const row = `row ${ordinal}`;
@@ -78,11 +99,17 @@ function HistoryRow({
   const contentRef = useRef<HTMLDivElement>(null);
   const [isClipped, setIsClipped] = useState(false);
   const contentId = `${item.id}-content`;
+  const otpauth = isOtpauth(item.data);
+  // Redacted rows never put the raw value in an accessible name.
+  const labelFor = (verb: string) =>
+    otpauth ? OTPAUTH_HIDDEN_TEXT : actionName(verb, item.data, ordinal);
 
   // Non-URL values are searchable only if they carry non-whitespace content:
   // `applyDetectedValue` rejects "" but not "   ", so a blank item is reachable
-  // and would otherwise render a dead button.
-  const canSearchWeb = !isUrl && item.data.trim().length > 0;
+  // and would otherwise render a dead button. otpauth rows are secrets, so they
+  // get no search action — the payload would otherwise leave the device in the
+  // query string.
+  const canSearchWeb = !otpauth && !isUrl && item.data.trim().length > 0;
 
   const measure = useCallback(() => {
     const el = contentRef.current;
@@ -129,7 +156,7 @@ function HistoryRow({
               onClick={() => onToggleExpand(item.id)}
               aria-expanded={expanded}
               aria-controls={contentId}
-              aria-label={actionName(expanded ? "Collapse" : "Expand", item.data, ordinal)}
+              aria-label={labelFor(expanded ? "Collapse" : "Expand")}
               title={expanded ? "Collapse" : "Expand"}
               className={`${ICON_BUTTON} hover:text-indigo-500`}
             >
@@ -142,7 +169,7 @@ function HistoryRow({
             <button
               type="button"
               onClick={() => onOpenUrl(item.data)}
-              aria-label={actionName("Open", item.data, ordinal)}
+              aria-label={labelFor("Open")}
               title="Open URL"
               className={`${ICON_BUTTON} hover:text-emerald-600`}
             >
@@ -155,7 +182,7 @@ function HistoryRow({
             <button
               type="button"
               onClick={() => onSearchWeb(item.data)}
-              aria-label={actionName("Search with Google for", item.data, ordinal)}
+              aria-label={labelFor("Search with Google for")}
               title="Search with Google"
               className={`${ICON_BUTTON} hover:text-blue-600`}
             >
@@ -167,7 +194,7 @@ function HistoryRow({
           <button
             type="button"
             onClick={() => onDeleteItem(item.id)}
-            aria-label={actionName("Delete", item.data, ordinal)}
+            aria-label={labelFor("Delete")}
             title="Delete"
             className={`${ICON_BUTTON} hover:text-red-500`}
           >
@@ -175,17 +202,19 @@ function HistoryRow({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
           </button>
-          <button
-            type="button"
-            onClick={() => onCopyHistoryItem(item.data)}
-            aria-label={actionName("Copy", item.data, ordinal)}
-            title="Copy"
-            className={`${ICON_BUTTON} hover:text-indigo-500`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-          </button>
+          {!otpauth && (
+            <button
+              type="button"
+              onClick={() => onCopyHistoryItem(item.data)}
+              aria-label={labelFor("Copy")}
+              title="Copy"
+              className={`${ICON_BUTTON} hover:text-indigo-500`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
       <div
@@ -193,7 +222,7 @@ function HistoryRow({
         id={contentId}
         className={`mt-1 text-sm text-slate-800 break-words ${expanded ? "" : "line-clamp-2"}`}
       >
-        {item.data}
+        {otpauth ? OTPAUTH_HIDDEN_TEXT : item.data}
       </div>
     </div>
   );
@@ -209,6 +238,9 @@ export function ScanHistory({
   onSearchWeb,
   onClearHistory,
   isValidUrl,
+  showMigrationBanner = true,
+  onMoveOtpauth,
+  onRemoveOtpauth,
 }: ScanHistoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
   // One resize listener for the whole list: every row shares the same width, so
@@ -227,6 +259,9 @@ export function ScanHistory({
         item.data.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : history;
+
+  // Rows are already classified for redaction, so the banner count is free.
+  const otpauthCount = history.filter((item) => isOtpauth(item.data)).length;
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
@@ -249,6 +284,36 @@ export function ScanHistory({
           </button>
         )}
       </div>
+
+      {showMigrationBanner && otpauthCount > 0 && (
+        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm text-amber-900">
+            {otpauthCount} authenticator {otpauthCount === 1 ? "code" : "codes"} found in scan history — move to 2FA vault or remove
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {onMoveOtpauth && (
+              <button
+                type="button"
+                onClick={onMoveOtpauth}
+                aria-label="Move authenticator codes to the 2FA vault"
+                className="min-h-11 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+              >
+                Move to 2FA vault
+              </button>
+            )}
+            {onRemoveOtpauth && (
+              <button
+                type="button"
+                onClick={onRemoveOtpauth}
+                aria-label="Remove authenticator codes from scan history"
+                className="min-h-11 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+              >
+                Remove from history
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {history.length > 0 && (
         <div className="mb-3">
