@@ -15,6 +15,8 @@ import {
   type BarcodeDetectorOptions,
 } from "barcode-detector/ponyfill";
 
+import { scanKind } from "./otpauth";
+
 /** PWA/offline: the vendored reader binary. Baked into the build from
  *  `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm`; see README. */
 export const ZXING_WASM_PATH = "zxing/zxing_reader.wasm";
@@ -160,7 +162,18 @@ export function describeOutcome(o: ScanOutcome | ClipboardFailure): string {
         return "No image on the clipboard";
     }
   }
-  if (o.ok) return `Scanned ${o.value}`;
+  if (o.ok) {
+    // WHY: an otpauth value is a secret — it must never reach the live region or a log.
+    switch (scanKind(o.value)) {
+      case "otpauth-totp":
+        return "Authenticator code found";
+      case "otpauth-hotp":
+      case "otpauth-other":
+        return "Unsupported authenticator code type";
+      default:
+        return `Scanned ${o.value}`;
+    }
+  }
   switch (o.kind) {
     case "not-image":
       return "That file isn't an image";

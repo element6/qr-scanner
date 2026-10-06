@@ -4,6 +4,7 @@ QR code scanner webapp with camera access, scan history, and a QR encoder.
 
 - **Scan** — decode QR/barcodes from the camera or an image file.
 - **Create** — encode text to an SVG QR code (EC `M`, up to 2,331 bytes).
+- **2FA authenticator** — scan `otpauth://` QR codes into a local vault unlocked by fingerprint or PIN, with password-encrypted backup export/import.
 - Scan history persists in `localStorage` (`qrScanHistory`, max 50 items).
 
 Built with Vite 8 + React 19 + Tailwind CSS 4. Deployed to GitHub Pages at

@@ -283,3 +283,41 @@ describe("offline wasm resolution (PWA)", () => {
     expect(locate("zxing_reader.wasm")).toBe(`/qr-scanner/${ZXING_WASM_PATH}`);
   });
 });
+
+describe("describeOutcome — otpauth values are never announced", () => {
+  // Distinct payloads per type: the URI is a live credential, so neither the
+  // announcement nor a test name may quote it.
+  const TOTP = "otpauth://totp/ACME:alice?secret=JBSWY3DPEHPK3PXP&issuer=ACME";
+  const HOTP = "otpauth://hotp/ACME:alice?secret=JBSWY3DPEHPK3PXP&counter=0";
+  const OTHER = "otpauth://steam/alice?secret=JBSWY3DPEHPK3PXP";
+
+  it("announces a TOTP find structurally, with no part of the URI", () => {
+    const text = describeOutcome({ ok: true, value: TOTP, count: 1 });
+    expect(text).toBe("Authenticator code found");
+    expect(text).not.toContain(TOTP);
+    expect(text).not.toContain("otpauth");
+    expect(text).not.toContain("secret");
+    expect(text).not.toContain("JBSWY3DPEHPK3PXP");
+    expect(text).not.toContain("alice");
+  });
+
+  it.each([
+    ["hotp", HOTP],
+    ["other", OTHER],
+  ])("rejects an %s URI without echoing it", (_label, value) => {
+    const text = describeOutcome({ ok: true, value, count: 1 });
+    expect(text).toBe("Unsupported authenticator code type");
+    expect(text).not.toContain(value);
+    expect(text).not.toContain("secret");
+    expect(text).not.toContain("JBSWY3DPEHPK3PXP");
+  });
+
+  it("leaves non-otpauth announcements byte-identical", () => {
+    expect(describeOutcome({ ok: true, value: "hello world", count: 1 })).toBe(
+      "Scanned hello world"
+    );
+    expect(describeOutcome({ ok: true, value: "https://a.b", count: 1 })).toBe(
+      "Scanned https://a.b"
+    );
+  });
+});

@@ -74,6 +74,24 @@ Confirmed functionality:
   clear all (with confirmation).
 - Keyboard shortcuts as a shipped desktop affordance (`c` copy, `o` open URL,
   space toggles scanning), suppressed while typing in a field.
+- 2FA authenticator vault: scan an `otpauth://` TOTP QR code into a local vault
+  unlocked by fingerprint (WebAuthn PRF) or a 6–8 digit PIN, with live codes and
+  a password-encrypted export/import file. Scanned seeds never reach scan
+  history, the clipboard, or the announced scan result.
+
+**2FA vault threat model.** The 2FA vault is encrypted on this device with a key
+protected by your fingerprint, or by a PIN if you choose one. Nothing is
+transmitted anywhere: there is no account, no server, and no recovery — if you
+lose both your fingerprint and your PIN, your only restore path is your
+password-protected export file. Your export password is the weakest link in the
+backup: a short password makes the file guessable offline, so the export offers a
+generated strong password. The PIN delay after repeated failures is a speed bump,
+not a lock: anyone with your unlocked device or your local storage data can
+bypass it. Codes are cleared from the clipboard when the code rolls over,
+best-effort — other apps may read them before then. The vault locks when you
+reload, switch away from the 2FA tab, or leave it idle for two minutes, but while
+your device is unlocked and the tab is open, so is your vault. Nothing in this
+app can protect you from malware on an unlocked device.
 
 Binding constraints:
 
