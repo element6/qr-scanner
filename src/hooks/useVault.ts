@@ -716,11 +716,17 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
       const vaultKey = vaultKeyRef.current;
       const base = recordRef.current;
       if (phaseRef.current !== "unlocked" || vaultKey === null || base === null) {
+        // Must setError: the panel stops the queue silently on any non-conflict
+        // failure and reads `vault.error` as the reason.
+        setError("vault locked");
         return { ok: false, error: "vault locked" };
       }
 
       const parsed = parseOtpauth(uri);
-      if (!parsed.ok) return { ok: false, error: parsed.error };
+      if (!parsed.ok) {
+        setError(parsed.error);
+        return { ok: false, error: parsed.error };
+      }
       const incoming = parsed.entry;
       const incomingSecret = canonicalize(incoming.secret);
       const current = entriesRef.current;
