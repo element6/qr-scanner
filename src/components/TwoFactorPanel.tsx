@@ -45,6 +45,11 @@ export interface TwoFactorPanelProps {
   onImport?: () => void;
 }
 
+/** TEMP (user-requested): force the PIN path in setup so the create-vault user
+ *  flow can be verified on devices whose passkey emits no PRF key. Revert by
+ *  deleting this constant and the five `!TEMP_PIN_ONLY` guards. */
+export const TEMP_PIN_ONLY = true;
+
 const PRIMARY_BUTTON =
   "min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500";
 const SECONDARY_BUTTON =
@@ -136,9 +141,6 @@ export function TwoFactorPanel({
   const createPinConfirmRef = useRef<HTMLInputElement>(null);
   const [showCreatePin, setShowCreatePin] = useState(false);
 
-  // TEMP (user-requested, revert before merge): force the PIN path in setup so
-  // the create-vault user flow can be verified on devices whose passkey has no PRF.
-  const TEMP_PIN_ONLY = true;
   const pinRequired = TEMP_PIN_ONLY || biometricSupported === false || alsoPin;
 
   const handleCreate = useCallback(async () => {

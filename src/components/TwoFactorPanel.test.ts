@@ -14,7 +14,7 @@
 import { createElement, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { TwoFactorPanel, type TwoFactorPanelProps } from "./TwoFactorPanel";
+import { TEMP_PIN_ONLY, TwoFactorPanel, type TwoFactorPanelProps } from "./TwoFactorPanel";
 import type { UseVault } from "../hooks/useVault";
 import { canonicalSecret, type OtpauthEntry } from "../utils/otpauth";
 import { defaultWebAuthnPort } from "../utils/webauthn";
@@ -160,7 +160,7 @@ describe("TwoFactorPanel setup", () => {
     expect(text()).not.toContain("Checking fingerprint support…");
   });
 
-  it("requires the PRF-only acknowledgement before creating a fingerprint vault", async () => {
+  it.skipIf(TEMP_PIN_ONLY)("requires the PRF-only acknowledgement before creating a fingerprint vault", async () => {
     const props = await render({ vault: makeVault({ phase: "setup" }) });
     expect(text()).toContain("Fingerprint unlock is available");
     expect(inputByLabel("Create PIN")).toBeUndefined();
@@ -173,7 +173,7 @@ describe("TwoFactorPanel setup", () => {
     expect(props.vault.createVault).toHaveBeenCalledWith({ mode: "prf" });
   });
 
-  it("validates opted-in PINs and creates prf+pin", async () => {
+  it.skipIf(TEMP_PIN_ONLY)("validates opted-in PINs and creates prf+pin", async () => {
     const props = await render({ vault: makeVault({ phase: "setup" }) });
     await click(checkboxByText("Also unlock with a PIN"));
 
@@ -203,7 +203,7 @@ describe("TwoFactorPanel setup", () => {
     expect(container.innerHTML).not.toContain("123456");
   });
 
-  it("makes a PIN mandatory when fingerprint unlock is unsupported", async () => {
+  it.skipIf(TEMP_PIN_ONLY)("makes a PIN mandatory when fingerprint unlock is unsupported", async () => {
     vi.mocked(defaultWebAuthnPort.isSupported).mockResolvedValue(false);
     const props = await render({ vault: makeVault({ phase: "setup" }) });
     expect(text()).toContain("This device has no fingerprint unlock");
