@@ -56,7 +56,7 @@ export type PersistedHistoryItem = Omit<HistoryItem, "id"> & { id?: unknown };
  * Falls back to a composite of the current time and a random value so it
  * works in older environments. Never throws.
  */
-export function createHistoryId(): string {
+function createHistoryId(): string {
   const cryptoObj: unknown =
     typeof globalThis !== "undefined"
       ? (globalThis as { crypto?: { randomUUID?: () => string } }).crypto

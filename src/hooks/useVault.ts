@@ -34,6 +34,7 @@ import {
   prfWrapAad,
   unb64,
 } from "../utils/vaultCrypto";
+import { randomBytes } from "../utils/random";
 import {
   CLOCK_OFFSET_KEY,
   CREDENTIAL_ID_KEY,
@@ -163,11 +164,7 @@ function pinProblem(pin: string | undefined): string | null {
   return PIN_RE.test(String(pin ?? "")) ? null : "pin must be 6–8 digits";
 }
 
-function randomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return bytes;
-}
+
 
 function readKey(key: string): string | null {
   try {

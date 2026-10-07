@@ -25,7 +25,7 @@ export const PNG_SIZE = 1024;
  * neither loads nor rejects the image), the promise would otherwise stay
  * pending forever and leave the Save image button disabled with no message.
  */
-export const RASTERIZE_TIMEOUT_MS = 10_000;
+const RASTERIZE_TIMEOUT_MS = 10_000;
 
 /** Filename offered for the PNG export. */
 export const PNG_FILENAME = "qr-code.png";

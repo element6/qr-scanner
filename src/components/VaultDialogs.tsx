@@ -22,7 +22,6 @@ import {
   useId,
   useRef,
   useState,
-  type ChangeEvent,
   type FormEvent,
   type JSX,
   type ReactNode,
@@ -438,7 +437,6 @@ export function ImportDialog({ vault, mode, onClose }: ImportDialogProps): JSX.E
   const pinId = useId();
   const pinConfirmId = useId();
 
-  const [file, setFile] = useState<File | null>(null);
   const [json, setJson] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -477,7 +475,6 @@ export function ImportDialog({ vault, mode, onClose }: ImportDialogProps): JSX.E
     setPlan(null);
     setCounts(null);
     setRestored(false);
-    setFile(picked);
     setJson(null);
     if (picked === null) return;
     try {

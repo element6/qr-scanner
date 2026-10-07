@@ -150,12 +150,7 @@ function buttonByText(text: string): HTMLButtonElement {
   throw new Error(`no button "${text}"`);
 }
 
-function tryButtonByText(text: string): HTMLButtonElement | null {
-  for (const button of Array.from(container.querySelectorAll("button"))) {
-    if ((button.textContent ?? "").trim() === text) return button;
-  }
-  return null;
-}
+
 
 async function setText(input: HTMLInputElement, value: string): Promise<void> {
   await act(async () => {

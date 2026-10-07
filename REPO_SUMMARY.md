@@ -30,7 +30,7 @@ entry_points:
 config_files:
   - vite.config.ts       # Vite config (base: /qr-scanner/, output: docs/)
   - package.json         # Dependencies and scripts
-  - manifest.json        # PWA manifest
+  - public/manifest.webmanifest  # PWA manifest (root manifest.json is generated at build)
   - index.html           # HTML template
 
 modules:
@@ -42,7 +42,7 @@ modules:
       - handleError: Camera error handling
       - clearHistory: Clear localStorage history
       - copyToClipboard: Copy scanned data
-      - openUrl: Open valid URLs
+      - handleOpenUrl: Open valid URLs
       - toggleScanner: Pause/resume camera
 
 dependencies:
@@ -63,7 +63,7 @@ deployment:
   output: docs/ folder
   base_path: /qr-scanner/
 
-tests: vitest 3.0.0 (5 files, 71 tests — qrcode, scanImage, validators, keyboardGuard, QrGenerator)
+tests: vitest 4.1.11 (`npm run test:run`; suite under src/, colocated *.test.ts)
 linting: none
 ```
 
@@ -116,4 +116,4 @@ linting: none
 
 ---
 
-**Summary:** A lightweight React QR scanner PWA that uses the device camera to scan codes, stores history in localStorage, and can open valid URLs. Built with Vite + Tailwind CSS, deploys to GitHub Pages. Tested with Vitest (71 tests); no linting configured.
+**Summary:** A lightweight React QR scanner PWA that uses the device camera to scan codes, stores history in localStorage, and can open valid URLs. Built with Vite + Tailwind CSS, deploys to GitHub Pages. Tested with Vitest (`npm run test:run`); no linting configured.

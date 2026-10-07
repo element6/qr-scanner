@@ -192,7 +192,7 @@ describe("scanImageFile (AC5, AC13)", () => {
     const close = vi.fn();
     const bitmap = { width: 800, height: 600, close };
     vi.stubGlobal("createImageBitmap", async () => bitmap);
-    const { detect, factory } = detector([{ rawValue: "Y" }]);
+    const { factory } = detector([{ rawValue: "Y" }]);
     try {
       const outcome = await scanImageFile(file("a.png"), factory);
       expect(outcome.ok).toBe(true);

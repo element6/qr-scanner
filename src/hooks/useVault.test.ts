@@ -101,7 +101,7 @@ const textEncoder = new TextEncoder();
 const PRF_OUTPUT = new Uint8Array(32).fill(7);
 const CREDENTIAL_ID = "credential-1";
 
-type PortResult<T> = T extends { ok: true } ? T : never;
+
 
 /** Fully controllable WebAuthn port; every call is recorded. */
 class FakePort implements WebAuthnPort {

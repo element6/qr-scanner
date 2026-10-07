@@ -136,8 +136,8 @@ product question, not a settled one. No accessibility standard has been chosen
   and a prototype at `specs/prototype-scan-image.html`.
 - Operational truth: `README.md` (PWA/offline mechanics, base handling, icon
   regeneration), `architecture.md`, `REPO_SUMMARY.md`.
-- Test suite: 71 tests across 5 files (Vitest) — `src/utils/*.test.ts`,
-  `src/components/*.test.ts`.
+- Test suite: Vitest, colocated `*.test.ts` across `src/` — run `npm run test:run`
+  for the current count.
 - Real icons exist: `public/icons/icon.svg`, `icon-maskable.svg`, and rendered
   PNGs at 192/512.
 - No user research, testimonials, case studies, benchmarks, or usage metrics

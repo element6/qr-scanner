@@ -21,7 +21,7 @@ export interface QrEncodeResult {
 }
 
 /** Error correction level used for every code this app emits. */
-export const QR_ERROR_CORRECTION = "M" as const;
+const QR_ERROR_CORRECTION = "M" as const;
 
 /** Byte-mode capacity at EC M — for messaging/readout only, never a hard gate. */
 export const BYTE_MODE_MAX_BYTES = 2331;

@@ -31,13 +31,6 @@ interface CapturedCalls {
 
 const captured: CapturedCalls = { create: [], get: [] };
 
-/** Last captured creation options; throws when `create()` never ran. */
-function lastCreatePublicKey(): PublicKeyCredentialCreationOptions {
-  const options = captured.create[captured.create.length - 1]?.publicKey;
-  if (!options) throw new Error("navigator.credentials.create was not called");
-  return options;
-}
-
 /** Last captured request options; throws when `get()` never ran. */
 function lastGetPublicKey(): PublicKeyCredentialRequestOptions {
   const options = captured.get[captured.get.length - 1]?.publicKey;

@@ -10,6 +10,8 @@
  * caller cannot be surprised by a rejected promise.
  */
 
+import { randomBytes } from "./random";
+
 /** Failure reasons shared by `register` and `get`. */
 export type FailureReason = "unavailable" | "not-allowed" | "no-prf" | "error";
 
@@ -130,12 +132,7 @@ function toBytes(value: unknown): Uint8Array | null {
   return null;
 }
 
-/** Random bytes for the user handle and PRF salts. */
-function randomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return bytes;
-}
+
 
 /** The subset of `CredentialsContainer` this port calls. */
 interface CredentialsContainerLike {
@@ -255,16 +252,6 @@ function readRpId(): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/**
- * PRF input for `get`. The DOM lib (TS 5.9) models the newer `eval` /
- * `evalByCredential` shape, but the authenticators this vault targets take a
- * salt array; the cast at the call site is the only place that difference is
- * visible.
- */
-interface PrfGetExtensionInput {
-  prf: { salts: BufferSource[] };
 }
 
 /**
