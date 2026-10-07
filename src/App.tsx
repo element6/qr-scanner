@@ -616,7 +616,11 @@ export default function App() {
           </p>
         </div>
 
-        <div className="mt-6 space-y-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6 lg:space-y-0">
+        <div
+          className={`mt-6 space-y-6 lg:grid lg:items-start lg:gap-6 lg:space-y-0 ${
+            activeTab === "2fa" ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_22rem]"
+          }`}
+        >
         <div className="space-y-6">
 
         {activeTab === "scan" && (
@@ -693,6 +697,10 @@ export default function App() {
         />
         </div>
 
+        {/* History pairs with Scan and Create. The 2FA tab has its own list
+          * (vault entries in TwoFactorPanel), so history beside it is noise —
+          * hide it and collapse the empty column. */}
+        {activeTab !== "2fa" && (
         <ScanHistory
           history={history}
           expandedItems={expandedItems}
@@ -712,6 +720,7 @@ export default function App() {
           onMoveOtpauth={handleMoveOtpauth}
           onRemoveOtpauth={handleRemoveOtpauth}
         />
+        )}
         </div>
 
       </div>
