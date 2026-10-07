@@ -321,6 +321,36 @@ describe("TwoFactorPanel unlocked", () => {
     expect(text()).toContain("No codes yet — scan a QR code to add one");
   });
 
+  it("wraps issuer and account instead of clamping them, so long names stay readable", async () => {
+    const longIssuer = ENTRY.issuer + " Production Tenant EU-West Account Recovery Portal";
+    const longAccount = `cheng.van.der.berg+${"workmail-emea".repeat(6)}@corporate.example.co.uk`;
+    const vault = makeVault({
+      phase: "unlocked",
+      entries: [{ ...ENTRY, issuer: longIssuer, account: longAccount }],
+    });
+    await render({ vault });
+
+    expect(text()).toContain(longIssuer);
+    expect(text()).toContain(longAccount);
+
+    // A clamp puts an ellipsis on the name; `break-words` wraps instead. An
+    // unbroken label (no spaces at all) must also wrap rather than overflow,
+    // which is why the utility is there and not just `min-w-0`.
+    const issuer = Array.from(container.querySelectorAll("p")).find(
+      (p) => p.textContent === longIssuer,
+    );
+    expect(issuer).toBeDefined();
+    const issuerClass = issuer?.className ?? "";
+    expect(issuerClass).toContain("break-words");
+    expect(issuerClass).not.toMatch(/line-clamp-\d/);
+
+    const account = Array.from(container.querySelectorAll("p")).find(
+      (p) => p.textContent === longAccount,
+    );
+    expect(account?.className ?? "").toContain("break-words");
+    expect(account?.className ?? "").not.toMatch(/line-clamp-\d/);
+  });
+
   it("requires confirmation before deleting a code", async () => {
     const removeEntry = vi.fn<UseVault["removeEntry"]>(async () => ({ ok: true }));
     const vault = makeVault({ phase: "unlocked", entries: [ENTRY], removeEntry });

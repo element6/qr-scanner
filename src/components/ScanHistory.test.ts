@@ -395,6 +395,27 @@ describe("ScanHistory otpauth redaction", () => {
     expect(container.querySelectorAll('button[title="Delete"]').length).toBe(1);
   });
 
+  it("never clamps the issuer or account, so long names stay readable", async () => {
+    await render({ history: [OTPAUTH_ITEM] });
+
+    const lines = Array.from(container.querySelectorAll("p"));
+    const issuer = lines.find((p) => p.textContent === "Example");
+    const account = lines.find((p) => p.textContent === "alice@example.com");
+    expect(issuer).toBeDefined();
+    expect(account).toBeDefined();
+
+    // The row's outer content div keeps its conditional `line-clamp-2` — that
+    // is the element `measure()` toggles to drive the Expand button. The name
+    // lines inside it are separate and must not clamp, or a long issuer or
+    // account is still unreadable without expanding.
+    for (const el of [issuer, account]) {
+      expect(el?.className ?? "").not.toMatch(/line-clamp-\d/);
+    }
+    const content = container.querySelector(".line-clamp-2");
+    expect(content).not.toBeNull();
+    expect(content?.querySelectorAll("p").length).toBeGreaterThan(0);
+  });
+
   it("keeps the redacted text for an otpauth row whose identity will not parse", async () => {
     // HOTP classifies as otpauth but parseOtpauth rejects it, so there is no
     // issuer/account to show — the row must fall back rather than render raw.

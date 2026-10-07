@@ -244,9 +244,9 @@ function HistoryRow({
       >
         {identity ? (
           <>
-            <p className="line-clamp-1 font-medium text-slate-900">{identity.issuer}</p>
+            <p className="font-medium text-slate-900">{identity.issuer}</p>
             {identity.account !== identity.issuer && (
-              <p className="line-clamp-1 text-xs text-slate-500">{identity.account}</p>
+              <p className="text-xs text-slate-500">{identity.account}</p>
             )}
           </>
         ) : (

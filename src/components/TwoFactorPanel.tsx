@@ -819,9 +819,9 @@ export function TwoFactorPanel({
             return (
               <li key={key} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-medium text-slate-900">{issuerLabel(entry)}</p>
+                  <p className="break-words text-sm font-medium text-slate-900">{issuerLabel(entry)}</p>
                   {entry.account.trim() !== "" && (
-                    <p className="line-clamp-2 text-xs text-slate-500">{entry.account}</p>
+                    <p className="break-words text-xs text-slate-500">{entry.account}</p>
                   )}
                 </div>
                 <div className="text-right">
