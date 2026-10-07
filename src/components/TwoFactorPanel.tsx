@@ -140,6 +140,7 @@ export function TwoFactorPanel({
   const createPinRef = useRef<HTMLInputElement>(null);
   const createPinConfirmRef = useRef<HTMLInputElement>(null);
   const [showCreatePin, setShowCreatePin] = useState(false);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
 
   const pinRequired = TEMP_PIN_ONLY || biometricSupported === false || alsoPin;
 
@@ -340,10 +341,14 @@ export function TwoFactorPanel({
   /** Saves URIs in order; stops at the first conflict so the user can decide. */
   const runSaveQueue = useCallback(
     async (queue: string[]) => {
+      const warnings: string[] = [];
       for (let i = 0; i < queue.length; i += 1) {
         const uri = queue[i];
         const result = await vault.saveEntry(uri);
-        if (result.ok) continue;
+        if (result.ok) {
+          if (result.warning !== undefined) warnings.push(result.warning);
+          continue;
+        }
         if (result.conflict) {
           conflictUriRef.current = uri;
           pendingQueueRef.current = queue.slice(i + 1);
@@ -361,6 +366,7 @@ export function TwoFactorPanel({
       }
       pendingQueueRef.current = null;
       setPendingSaving(false);
+      setSaveWarning(warnings.length > 0 ? [...new Set(warnings)].join(" ") : null);
       onPendingResolved("saved");
     },
     [onPendingResolved, vault]
@@ -788,6 +794,12 @@ export function TwoFactorPanel({
       {vault.error && (
         <p className={ALERT} role="alert">
           {vault.error}
+        </p>
+      )}
+
+      {saveWarning && (
+        <p className="mt-3 text-sm text-amber-700" role="status">
+          {saveWarning}
         </p>
       )}
 

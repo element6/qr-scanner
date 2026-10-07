@@ -259,7 +259,7 @@ describe("App: 2FA pending banner → Save (integration, real useVault)", () => 
           );
           return found !== null;
         }, 10_000, "migration banner move button");
-        return found as HTMLButtonElement;
+        return found as unknown as HTMLButtonElement;
       })();
       await act(async () => {
         moveBtn.click();

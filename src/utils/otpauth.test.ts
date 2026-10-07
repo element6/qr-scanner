@@ -359,7 +359,7 @@ describe("normalizeEntry", () => {
       [{ account: "alice", secret: "JBSWY3DPEHPK3PX0" }, "invalid secret alphabet"],
       [{ account: "alice", secret: "JBSWY3DPEHPK3PXP1" }, "invalid secret alphabet"],
       [{ account: "alice", secret: "JBSWY3DPEHPK3PXP9" }, "invalid secret alphabet"],
-      [{ account: "alice", secret: "JBSWY3DP" }, "invalid secret length"],
+      
       [{ account: "alice", secret: SECRET, algorithm: "MD5" }, "unsupported algorithm"],
       [{ account: "alice", secret: SECRET, algorithm: "SHA3" }, "unsupported algorithm"],
       [{ account: "alice", secret: SECRET, digits: "7" }, "digits must be 6 or 8"],
@@ -374,6 +374,19 @@ describe("normalizeEntry", () => {
     for (const [fields, error] of cases) {
       expect(normalizeEntry(fields)).toEqual({ ok: false, error });
     }
+  });
+
+  it("warns but accepts a secret that decodes to fewer than 10 bytes", () => {
+    const short = normalizeEntry({ account: "alice", secret: "JBSWY3DP" });
+    expect(short.ok).toBe(true);
+    if (!short.ok) return;
+    expect(short.entry.secret).toBe("JBSWY3DP");
+    expect(short.warning).toContain("5 bytes");
+
+    const full = normalizeEntry({ account: "alice", secret: SECRET });
+    expect(full.ok).toBe(true);
+    if (!full.ok) return;
+    expect(full.warning).toBeUndefined();
   });
 });
 

@@ -89,7 +89,7 @@ export type VaultBusy =
  * `{ replace: true }` to overwrite.
  */
 export type SaveResult =
-  | { ok: true; outcome: "added" | "replaced" | "duplicate" }
+  | { ok: true; outcome: "added" | "replaced" | "duplicate"; warning?: string }
   | {
       ok: false;
       error: string;
@@ -728,12 +728,15 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
         return { ok: false, error: parsed.error };
       }
       const incoming = parsed.entry;
+      const warning = parsed.warning;
       const incomingSecret = canonicalize(incoming.secret);
       const current = entriesRef.current;
 
       const duplicate = current.find((entry) => canonicalize(entry.secret) === incomingSecret);
       if (duplicate !== undefined && opts?.replace !== true) {
-        return { ok: true, outcome: "duplicate" };
+        return warning === undefined
+          ? { ok: true, outcome: "duplicate" }
+          : { ok: true, outcome: "duplicate", warning };
       }
 
       // Same name, different secret (exact first, then a case variant): the user
@@ -783,7 +786,7 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
         }
         recordRef.current = updated;
         applyEntries(next);
-        return { ok: true, outcome };
+        return warning === undefined ? { ok: true, outcome } : { ok: true, outcome, warning };
       } finally {
         setBusy(null);
       }

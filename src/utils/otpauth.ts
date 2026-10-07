@@ -8,6 +8,7 @@
  * and nothing here touches storage, the DOM or crypto.
  */
 
+import { decodeBase32 } from "./base32";
 import { isValidUrl } from "./validators";
 
 export type ScanKind = "text" | "url" | "otpauth-totp" | "otpauth-hotp" | "otpauth-other";
@@ -18,8 +19,9 @@ const OTPAUTH_SCHEME_RE = /^otpauth:/i;
 /** RFC 4648 base32 alphabet, uppercase: 0/1/8/9 are deliberately absent. */
 const BASE32_RE = /^[A-Z2-7]+$/;
 
-/** Shorter secrets are rejected outright — they cannot carry 128 bits. */
-const MIN_SECRET_LENGTH = 16;
+/** Secrets decoding to fewer bytes than this cannot carry a full HMAC key.
+ *  Reported as a warning, not a rejection — providers do ship short ones. */
+const MIN_SECRET_BYTES = 10;
 
 const DEFAULT_PERIOD = 30;
 const MIN_PERIOD = 1;
@@ -77,7 +79,10 @@ export interface OtpauthEntry {
   period: number;
 }
 
-export type NormalizeResult = { ok: true; entry: OtpauthEntry } | { ok: false; error: string };
+/** `warning` is advisory: the entry is usable but worth telling the user. */
+export type NormalizeResult =
+  | { ok: true; entry: OtpauthEntry; warning?: string }
+  | { ok: false; error: string };
 
 /**
  * Canonical secret form: uppercase, with whitespace and `=` padding removed.
@@ -170,7 +175,14 @@ export function normalizeEntry(fields: {
   const secret = canonicalSecret(typeof fields.secret === "string" ? fields.secret : "");
   if (secret === "") return { ok: false, error: "missing secret" };
   if (!BASE32_RE.test(secret)) return { ok: false, error: "invalid secret alphabet" };
-  if (secret.length < MIN_SECRET_LENGTH) return { ok: false, error: "invalid secret length" };
+  // Base32 chars are not bytes: char count lies about key length. Decode once
+  // and judge the real bytes; short keys warn rather than block.
+  const decoded = decodeBase32(secret);
+  if (!decoded.ok) return { ok: false, error: decoded.error };
+  const shortSecretWarning =
+    decoded.bytes.length < MIN_SECRET_BYTES
+      ? `This secret is ${decoded.bytes.length} bytes — shorter than the 10 bytes most authenticator keys use. Codes may still work, but a longer secret is stronger.`
+      : null;
 
   let algorithm: OtpauthEntry["algorithm"] = "SHA1";
   if (!isAbsent(fields.algorithm)) {
@@ -197,7 +209,10 @@ export function normalizeEntry(fields: {
 
   const issuer = typeof fields.issuer === "string" ? safeDecode(fields.issuer).trim() : "";
 
-  return { ok: true, entry: { issuer, account, secret, algorithm, digits, period } };
+  const entry: OtpauthEntry = { issuer, account, secret, algorithm, digits, period };
+  return shortSecretWarning === null
+    ? { ok: true, entry }
+    : { ok: true, entry, warning: shortSecretWarning };
 }
 
 /**
