@@ -858,6 +858,21 @@ describe("lock and idle", () => {
     }
     expect(vault().phase).toBe("unlocked");
   });
+
+  it("treats scrolling and touch as activity, so reading the list never locks the vault", async () => {
+    vi.useFakeTimers();
+    await seedVault({ pin: "123456" });
+    mount(new FakePort());
+    await run((v) => v.unlockWithPin("123456"));
+
+    for (const event of ["scroll", "touchmove"]) {
+      await act(async () => {
+        vi.advanceTimersByTime(IDLE_LOCK_MS - 1_000);
+        window.dispatchEvent(new Event(event));
+      });
+      expect(vault().phase).toBe("unlocked");
+    }
+  });
 });
 
 describe("cross-tab and clock", () => {

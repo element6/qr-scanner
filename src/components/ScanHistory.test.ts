@@ -363,11 +363,20 @@ const OTPAUTH_ITEM: HistoryItem = {
   timestamp: "2026-01-06T00:00:00.000Z",
 };
 
+/** Classified otpauth by `scanKind`, but `parseOtpauth` refuses it, so the row
+ *  has no safe identity to render. */
+const UNPARSEABLE_OTPAUTH_ITEM: HistoryItem = {
+  id: "otp-unparseable",
+  data: `otpauth://hotp/Example:alice?secret=${OTPAUTH_SECRET}&issuer=Example`,
+  timestamp: "2026-01-06T00:00:00.000Z",
+};
+
 describe("ScanHistory otpauth redaction", () => {
-  it("shows the fixed text, drops the secret from DOM and every aria-label, and hides Copy", async () => {
+  it("shows the issuer and account, drops the secret from DOM and every aria-label, and hides Copy", async () => {
     await render({ history: [OTPAUTH_ITEM] });
 
-    expect(container.textContent).toContain("Authenticator code — hidden");
+    expect(container.textContent).toContain("Example");
+    expect(container.textContent).toContain("alice@example.com");
     expect(container.textContent).not.toContain(OTPAUTH_SECRET);
     expect(container.innerHTML).not.toContain(OTPAUTH_SECRET);
 
@@ -384,6 +393,16 @@ describe("ScanHistory otpauth redaction", () => {
     // Delete is unrelated to the secret and stays; its `title` is static, since
     // the aria-label must be the fixed redacted string on this row.
     expect(container.querySelectorAll('button[title="Delete"]').length).toBe(1);
+  });
+
+  it("keeps the redacted text for an otpauth row whose identity will not parse", async () => {
+    // HOTP classifies as otpauth but parseOtpauth rejects it, so there is no
+    // issuer/account to show — the row must fall back rather than render raw.
+    await render({ history: [UNPARSEABLE_OTPAUTH_ITEM] });
+
+    expect(container.textContent).toContain("Authenticator code — hidden");
+    expect(container.textContent).not.toContain(OTPAUTH_SECRET);
+    expect(container.innerHTML).not.toContain(OTPAUTH_SECRET);
   });
 
   it("leaves a non-otpauth row unchanged: value visible and Copy present", async () => {

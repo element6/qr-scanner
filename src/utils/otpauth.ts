@@ -277,6 +277,24 @@ export function parseOtpauth(uri: string): NormalizeResult {
   });
 }
 
+/** Non-secret identity for an otpauth payload: issuer/account only.
+ *
+ *  Lives here, beside `parseOtpauth`, so exactly one function can hand an
+ *  issuer/account pair to a view. The secret is dropped by construction — there
+ *  is no field on the return type that could carry it. Callers that render a
+ *  name for a scanned authenticator MUST go through this, never
+ *  `parseOtpauth(...).entry` directly.
+ *
+ *  @param value - Raw scanned payload, not necessarily otpauth
+ *  @returns Issuer/account when the payload parses, otherwise null
+ */
+export function otpauthIdentity(
+  value: string
+): { issuer: string; account: string } | null {
+  const result = parseOtpauth(value);
+  return result.ok ? { issuer: result.entry.issuer, account: result.entry.account } : null;
+}
+
 /**
  * Serialises an entry back to a canonical `otpauth://totp/` URI. All five query
  * parameters are always emitted so a round-trip through `parseOtpauth` is total.

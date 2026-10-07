@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { HistoryItem } from "../utils/validators";
-import { scanKind } from "../utils/otpauth";
+import { otpauthIdentity, scanKind } from "../utils/otpauth";
 
 type ScanHistoryProps = {
   history: HistoryItem[];
@@ -69,6 +69,24 @@ function isOtpauth(data: string): boolean {
   );
 }
 
+/** Display identity for an otpauth row, or null when there is nothing safe to
+ *  show. `otpauthIdentity` is the only source: it drops the secret by
+ *  construction, so no seed can reach this return value.
+ *
+ *  A row with an issuer gets the two-line issuer/account shape. A row whose
+ *  issuer is empty collapses to the account alone. A row with neither is
+ *  treated as unshowable and keeps the redacted text. */
+function otpauthRowIdentity(
+  data: string
+): { issuer: string; account: string } | null {
+  const parsed = otpauthIdentity(data);
+  if (parsed === null) return null;
+  const issuer = parsed.issuer.trim();
+  const account = parsed.account.trim();
+  if (issuer === "" && account === "") return null;
+  return { issuer: issuer === "" ? account : issuer, account };
+}
+
 function actionName(verb: string, data: string, ordinal: number): string {
   const value = data.replace(/\s+/g, " ").trim();
   const row = `row ${ordinal}`;
@@ -100,6 +118,8 @@ function HistoryRow({
   const [isClipped, setIsClipped] = useState(false);
   const contentId = `${item.id}-content`;
   const otpauth = isOtpauth(item.data);
+  // Only otpauth rows get a name; a text or url row keeps rendering its value.
+  const identity = otpauth ? otpauthRowIdentity(item.data) : null;
   // Redacted rows never put the raw value in an accessible name.
   const labelFor = (verb: string) =>
     otpauth ? OTPAUTH_HIDDEN_TEXT : actionName(verb, item.data, ordinal);
@@ -222,7 +242,16 @@ function HistoryRow({
         id={contentId}
         className={`mt-1 text-sm text-slate-800 break-words ${expanded ? "" : "line-clamp-2"}`}
       >
-        {otpauth ? OTPAUTH_HIDDEN_TEXT : item.data}
+        {identity ? (
+          <>
+            <p className="line-clamp-1 font-medium text-slate-900">{identity.issuer}</p>
+            {identity.account !== identity.issuer && (
+              <p className="line-clamp-1 text-xs text-slate-500">{identity.account}</p>
+            )}
+          </>
+        ) : (
+          otpauth ? OTPAUTH_HIDDEN_TEXT : item.data
+        )}
       </div>
     </div>
   );
@@ -289,6 +318,11 @@ export function ScanHistory({
         <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
           <p className="text-sm text-amber-900">
             {otpauthCount} authenticator {otpauthCount === 1 ? "code" : "codes"} found in scan history — move to 2FA vault or remove
+          </p>
+          <p className="text-xs text-amber-800">
+            The full otpauth:// link — including the secret — stays in plain text in scan history
+            until you act. Moving copies it into the 2FA vault and then removes the history row;
+            removing discards it.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {onMoveOtpauth && (

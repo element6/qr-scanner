@@ -481,7 +481,7 @@ export default function App() {
    *  other classes are not importable, so they stay for the explicit discard. */
   const handleMoveOtpauth = useCallback(() => {
     const uris = history
-      .filter((item) => scanKind(item.data) === "otpauth-totp")
+      .filter((item) => isOtpauthKind(scanKind(item.data)))
       .map((item) => item.data);
     if (uris.length === 0) return;
     setPending({ uris, source: "history" });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { parseOtpauth, scanKind, type ScanKind } from "../utils/otpauth";
+import { otpauthIdentity, scanKind, type ScanKind } from "../utils/otpauth";
 
 type ScanResultProps = {
   /** The decoded value, shown as plain local text — selectable, never a link. */
@@ -18,13 +18,6 @@ type ScanResultProps = {
   /** When omitted, the TOTP branch stays informational and offers no action. */
   onSaveToVault?: () => void;
 };
-
-/** Issuer/account only — the parser's secret field is deliberately dropped so
- *  no seed can travel further than this function's return value. */
-function parsedIdentity(value: string): { issuer: string; account: string } | null {
-  const result = parseOtpauth(value);
-  return result.ok ? { issuer: result.entry.issuer, account: result.entry.account } : null;
-}
 
 /** Matches the secondary buttons in ImageScanControl / ScanHistory. */
 const SECONDARY_BUTTON =
@@ -134,7 +127,7 @@ export function ScanResult({
    */
   if (isOtp) {
     const isTotp = effectiveKind === "otpauth-totp";
-    const identity = isTotp ? entry ?? parsedIdentity(value) : null;
+    const identity = isTotp ? entry ?? otpauthIdentity(value) : null;
 
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

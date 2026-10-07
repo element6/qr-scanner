@@ -140,7 +140,7 @@ export interface UseVault {
 }
 
 /** Inactivity before the vault locks itself. */
-export const IDLE_LOCK_MS = 120_000;
+export const IDLE_LOCK_MS = 60_000;
 
 /** A PIN delay only starts at the fifth consecutive failure. */
 const DELAY_START_FAILURES = 5;
@@ -1111,10 +1111,17 @@ export function useVault(port: WebAuthnPort = defaultWebAuthnPort): UseVault {
     arm();
     window.addEventListener("pointerdown", arm);
     window.addEventListener("keydown", arm);
+    // Reading codes is mostly scrolling. Without these, a user who scrolls the
+    // entry list or lets the codes rotate without touching anything locks
+    // themselves out mid-use at IDLE_LOCK_MS.
+    window.addEventListener("scroll", arm, { passive: true });
+    window.addEventListener("touchmove", arm, { passive: true });
     return () => {
       clearTimeout(timer);
       window.removeEventListener("pointerdown", arm);
       window.removeEventListener("keydown", arm);
+      window.removeEventListener("scroll", arm);
+      window.removeEventListener("touchmove", arm);
     };
   }, [applyPhase, clearKey, phase]);
 
