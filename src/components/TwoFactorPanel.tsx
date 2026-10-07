@@ -136,7 +136,10 @@ export function TwoFactorPanel({
   const createPinConfirmRef = useRef<HTMLInputElement>(null);
   const [showCreatePin, setShowCreatePin] = useState(false);
 
-  const pinRequired = biometricSupported === false || alsoPin;
+  // TEMP (user-requested, revert before merge): force the PIN path in setup so
+  // the create-vault user flow can be verified on devices whose passkey has no PRF.
+  const TEMP_PIN_ONLY = true;
+  const pinRequired = TEMP_PIN_ONLY || biometricSupported === false || alsoPin;
 
   const handleCreate = useCallback(async () => {
     setCreateError(null);
@@ -156,7 +159,7 @@ export function TwoFactorPanel({
       if (createPinRef.current) createPinRef.current.value = "";
       if (createPinConfirmRef.current) createPinConfirmRef.current.value = "";
       const result = await vault.createVault({
-        mode: biometricSupported === false ? "pin" : "prf+pin",
+        mode: TEMP_PIN_ONLY || biometricSupported === false ? "pin" : "prf+pin",
         pin,
       });
       if (!result.ok) setCreateError(result.error);
@@ -421,7 +424,7 @@ export function TwoFactorPanel({
     const submitDisabled =
       creating ||
       biometricSupported === null ||
-      (biometricSupported === true && !alsoPin && !acknowledged);
+      (!TEMP_PIN_ONLY && biometricSupported === true && !alsoPin && !acknowledged);
 
     return (
       <section id="panel-2fa" className={CARD} aria-labelledby="twofactor-setup-title">
@@ -444,7 +447,22 @@ export function TwoFactorPanel({
           </p>
         )}
 
-        {biometricSupported === true && (
+        {/* TEMP: PIN-only setup, to verify the create-vault user flow. */}
+        {TEMP_PIN_ONLY && (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-slate-700">
+              Your PIN is the only key on this device.
+            </p>
+            <PinCreateFields
+              pinRef={createPinRef}
+              confirmRef={createPinConfirmRef}
+              visible={showCreatePin}
+              onToggleVisible={() => setShowCreatePin((v) => !v)}
+            />
+          </div>
+        )}
+
+        {!TEMP_PIN_ONLY && biometricSupported === true && (
           <div className="mt-4 space-y-3">
             <p className="text-sm text-slate-700">Fingerprint unlock is available on this device.</p>
             <label className="flex items-start gap-2 text-sm text-slate-700">
@@ -484,7 +502,7 @@ export function TwoFactorPanel({
           </div>
         )}
 
-        {biometricSupported === false && (
+        {!TEMP_PIN_ONLY && biometricSupported === false && (
           <div className="mt-4 space-y-3">
             <p className="text-sm text-slate-700">
               This device has no fingerprint unlock — your PIN is the only key.
